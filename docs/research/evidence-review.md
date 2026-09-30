@@ -11,6 +11,19 @@ Reviewed 2026-10-01 for the Issue #2 evidence-library seed. This is a small set 
 - **Public source:** [Download the official report (PDF)](https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2024.pdf)
 - **Review basis:** Inspected the official PDF and the cited passages/footnotes. The report’s limited assurance statement says THG Eco and MyCarbon verified the corporate GHG inventory for calendar 2024 at limited assurance and explicitly says no verification procedures were performed on the report (printed p. 89). Do not describe the three records below as independently assured.
 
+## Reusable review checklist
+
+For each record, verify it against the cited public source before setting `reviewState` to `reviewed`:
+
+- Confirm the claim wording preserves the source's attribution, qualifiers, and scope; keep one claim per record.
+- Classify it as a reported result, target, or method. Do not turn a target or activity into an achieved outcome.
+- Check the stated reporting period. Record an explicit absence when the source provides none; keep the reporting period separate from report edition and publication date.
+- Check the value and unit against the source, preserving thresholds, precision, and any displayed formatting. Do not silently convert units or infer another value.
+- Verify the source title, edition, publication date (or that none is stated), public URL, and printed/PDF page or section locator.
+- Record what the source does not explain, including boundaries, methodology, denominators, assurance scope, or measurement limits relevant to the claim.
+- Prefer public primary sources. If a secondary source is necessary, state why and record its limits.
+- Keep illustrative, pending-review, reviewed, and rejected states distinct. Only a reviewed report result enters the Reported impact view; review state does not imply publisher endorsement.
+
 ## Candidate records
 
 ### ENV-2024-SOLAR-GENERATION — Environment

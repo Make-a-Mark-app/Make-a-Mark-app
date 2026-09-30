@@ -86,6 +86,12 @@ test("the About page reflects the reviewed library and Engineer boundary", async
   await expect(page.getByText("This prototype uses illustrative content only.")).toHaveCount(0);
 });
 
+test("the Home page points to the available source-reviewed library", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText(/three source-reviewed claims/i)).toBeVisible();
+  await expect(page.getByText("Reviewed evidence will appear here.")).toHaveCount(0);
+});
+
 test("reviewed evidence details show source, period, review note, and limitations", async ({ page }) => {
   await page.goto("/library");
   await page.getByRole("button", { name: "Open record: Renewable solar generation" }).click();

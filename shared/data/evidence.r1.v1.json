@@ -8,6 +8,7 @@
       "claim": "779,682.30 kWh of renewable solar energy generated in 2024.",
       "claimType": "report_result",
       "value": 779682.3,
+      "valueDisplay": "779,682.30",
       "unit": "kWh",
       "reportingPeriod": "2024",
       "source": {

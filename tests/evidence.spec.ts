@@ -48,6 +48,7 @@ test("the evidence API exposes validated source-reviewed claims with provenance"
     title: "Renewable solar generation",
     claimType: "report_result",
     value: 779682.3,
+    valueDisplay: "779,682.30",
     unit: "kWh",
     reportingPeriod: "2024",
     source: {
@@ -78,12 +79,20 @@ test("visitors can browse reviewed claims separately from illustrative samples",
   await expect(page.getByRole("dialog")).toContainText("Target");
 });
 
+test("the About page reflects the reviewed library and Engineer boundary", async ({ page }) => {
+  await page.goto("/about");
+  await expect(page.getByText(/limited set of source-reviewed claims/i)).toBeVisible();
+  await expect(page.getByText(/does not retrieve evidence records yet/i)).toBeVisible();
+  await expect(page.getByText("This prototype uses illustrative content only.")).toHaveCount(0);
+});
+
 test("reviewed evidence details show source, period, review note, and limitations", async ({ page }) => {
   await page.goto("/library");
   await page.getByRole("button", { name: "Open record: Renewable solar generation" }).click();
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("Source-reviewed for this prototype");
+  await expect(dialog.locator(".record-fields > div").filter({ hasText: "REPORTED VALUE" })).toContainText("779,682.30 kWh");
   await expect(dialog).toContainText("2024");
   await expect(dialog).toContainText("The report attributes the data to its solar panel provider.");
   await expect(dialog.getByRole("link", { name: "Open source report" })).toHaveAttribute(

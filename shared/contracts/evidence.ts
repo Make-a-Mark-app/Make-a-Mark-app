@@ -22,6 +22,7 @@ export type EvidenceRecord = {
   claim: string;
   claimType: ClaimType;
   value?: string | number;
+  valueDisplay?: string;
   unit?: string;
   reportingPeriod: string | null;
   source: EvidenceSource;
@@ -51,7 +52,7 @@ function includes<const T extends readonly string[]>(values: T, value: unknown):
   return typeof value === "string" && values.some((candidate) => candidate === value);
 }
 
-function isHttpUrl(value: unknown): value is string {
+function isHttpsUrl(value: unknown): value is string {
   if (!nonEmptyString(value)) return false;
   try {
     const url = new URL(value);
@@ -63,7 +64,7 @@ function isHttpUrl(value: unknown): value is string {
 
 export function parseEvidenceRecord(value: unknown): EvidenceRecord | null {
   if (!isRecord(value) || !hasOnlyKeys(value, [
-    "id", "title", "topic", "claim", "claimType", "value", "unit", "reportingPeriod",
+    "id", "title", "topic", "claim", "claimType", "value", "valueDisplay", "unit", "reportingPeriod",
     "source", "reviewState", "reviewNote", "limitations",
   ])) return null;
 
@@ -71,6 +72,7 @@ export function parseEvidenceRecord(value: unknown): EvidenceRecord | null {
   if (!isRecord(source) || !hasOnlyKeys(source, ["title", "edition", "publicationDate", "url", "location"])) return null;
 
   const validValue = value.value === undefined || typeof value.value === "string" || (typeof value.value === "number" && Number.isFinite(value.value));
+  const validValueDisplay = value.valueDisplay === undefined || nonEmptyString(value.valueDisplay);
   const validUnit = value.unit === undefined || nonEmptyString(value.unit);
   const validDate = source.publicationDate === null || nonEmptyString(source.publicationDate);
   const validLocation = source.location === null || nonEmptyString(source.location);
@@ -79,13 +81,14 @@ export function parseEvidenceRecord(value: unknown): EvidenceRecord | null {
     !nonEmptyString(value.id) || !/^[a-z0-9][a-z0-9-]*$/i.test(value.id) ||
     !nonEmptyString(value.title) || !includes(evidenceTopics, value.topic) ||
     !nonEmptyString(value.claim) || !includes(claimTypes, value.claimType) ||
-    !validValue || !validUnit ||
+    !validValue || !validValueDisplay || !validUnit ||
     (value.value !== undefined && value.unit === undefined) ||
+    (value.valueDisplay !== undefined && value.value === undefined) ||
     !(value.reportingPeriod === null || nonEmptyString(value.reportingPeriod)) ||
     !includes(reviewStates, value.reviewState) || !nonEmptyString(value.reviewNote) ||
     !Array.isArray(value.limitations) || !value.limitations.every(nonEmptyString) ||
     !nonEmptyString(source.title) || !nonEmptyString(source.edition) || !validDate ||
-    !isHttpUrl(source.url) || !validLocation
+    !isHttpsUrl(source.url) || !validLocation
   ) return null;
 
   if (value.topic === "Governance" ? value.claimType !== "method" : value.claimType === "method") return null;

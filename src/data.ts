@@ -1,4 +1,14 @@
-export type EvidenceRecord = {
+import evidenceData from "../shared/data/evidence.r1.v1.json";
+import { isReportedImpact, parseEvidenceDataset, type EvidenceRecord } from "../shared/contracts/evidence";
+import { missionScenario } from "../shared/mission";
+
+const parsedEvidence = parseEvidenceDataset(evidenceData);
+if (!parsedEvidence) throw new Error("The source-reviewed evidence file is invalid.");
+
+export type { EvidenceRecord };
+export const evidenceRecords = parsedEvidence.records.filter(isReportedImpact);
+
+export type IllustrativeSample = {
   id: string;
   title: string;
   topic: "Environment" | "Belong" | "Community" | "Governance";
@@ -11,8 +21,8 @@ export type EvidenceRecord = {
   review: "Illustrative sample";
 };
 
-// These records demonstrate the library structure only; they are not factual evidence.
-export const evidenceRecords: EvidenceRecord[] = [
+// These examples are not factual claims and are kept separate from reviewed evidence.
+export const illustrativeSamples: IllustrativeSample[] = [
   {
     id: "sample-freight",
     title: "Freight and logistics evidence",
@@ -52,8 +62,4 @@ export const evidenceRecords: EvidenceRecord[] = [
 ];
 
 export const routeOptions = missionScenario.choices;
-import { missionScenario } from "../shared/mission";
-import type { RouteId } from "../shared/contracts/mission";
-
-export { missionScenario };
-export type { RouteId };
+export type { RouteId } from "../shared/contracts/mission";

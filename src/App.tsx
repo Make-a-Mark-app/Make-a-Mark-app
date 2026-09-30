@@ -3,7 +3,7 @@ import {
   ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpRight, BookOpen, Check,
   ChevronDown, Compass, Info, MapPin, Menu, Search, ShieldCheck, Sparkles, X,
 } from "lucide-react";
-import { evidenceRecords, routeOptions, type EvidenceRecord, type RouteId } from "./data";
+import { evidenceRecords, illustrativeSamples, routeOptions, type EvidenceRecord, type IllustrativeSample, type RouteId } from "./data";
 import { EMPTY_DISCOVERY, hasDiscovery, parseDiscoveryRecap, type DiscoveryRecap } from "../shared/contracts/discovery";
 import { createMissionOutcome } from "../shared/contracts/mission";
 import { missionScenario } from "../shared/mission";
@@ -17,6 +17,18 @@ type EngineerReply = {
   citations: Array<{ recordId: string; sourceDocument: string; sourcePage: number }>;
   mode: "grounded_ai" | "prepared_fallback" | "no_answer";
 };
+type LibraryRecord = EvidenceRecord | IllustrativeSample;
+type EvidenceView = "reported" | "illustrative";
+
+function findLibraryRecord(id: string): LibraryRecord | null {
+  return evidenceRecords.find((record) => record.id === id)
+    ?? illustrativeSamples.find((record) => record.id === id)
+    ?? null;
+}
+
+function isIllustrativeSample(record: LibraryRecord): record is IllustrativeSample {
+  return "review" in record;
+}
 
 const navItems: Array<{ id: Screen; label: string }> = [
   { id: "world", label: "World" },
@@ -62,9 +74,10 @@ function App() {
   const [motionOn, setMotionOn] = useState(!window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [search, setSearch] = useState("");
   const [topic, setTopic] = useState("All topics");
-  const [selectedRecord, setSelectedRecord] = useState<EvidenceRecord | null>(() => {
+  const [evidenceView, setEvidenceView] = useState<EvidenceView>("reported");
+  const [selectedRecord, setSelectedRecord] = useState<LibraryRecord | null>(() => {
     const id = window.location.pathname.startsWith("/library/") ? window.location.pathname.split("/")[2] : "";
-    return evidenceRecords.find((record) => record.id === id) ?? null;
+    return findLibraryRecord(id);
   });
   const [question, setQuestion] = useState("");
   const [reply, setReply] = useState<EngineerReply | null>(null);
@@ -83,7 +96,7 @@ function App() {
       const path = window.location.pathname;
       setScreen(screenFromPath(path));
       const id = path.startsWith("/library/") ? path.split("/")[2] : "";
-      setSelectedRecord(evidenceRecords.find((record) => record.id === id) ?? null);
+      setSelectedRecord(findLibraryRecord(id));
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -125,12 +138,18 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [screen, car.x, car.y]);
 
-  const visibleRecords = useMemo(() => evidenceRecords.filter((record) => {
-    const matchesSearch = `${record.title} ${record.summary} ${record.topic} ${record.claimType}`.toLowerCase().includes(search.toLowerCase());
-    return matchesSearch && (topic === "All topics" || record.topic === topic);
-  }), [search, topic]);
+  const visibleRecords = useMemo(() => {
+    const records: LibraryRecord[] = evidenceView === "reported" ? evidenceRecords : illustrativeSamples;
+    return records.filter((record) => {
+      const searchableText = isIllustrativeSample(record)
+        ? `${record.title} ${record.summary} ${record.topic} ${record.claimType} ${record.source}`
+        : `${record.title} ${record.claim} ${record.topic} ${record.claimType} ${record.source.title}`;
+      const matchesSearch = searchableText.toLowerCase().includes(search.toLowerCase());
+      return matchesSearch && (topic === "All topics" || record.topic === topic);
+    });
+  }, [evidenceView, search, topic]);
 
-  function openRecord(record: EvidenceRecord) {
+  function openRecord(record: LibraryRecord) {
     window.history.pushState({}, "", `/library/${record.id}`);
     setSelectedRecord(record);
     setDiscovery((d) => ({
@@ -208,7 +227,7 @@ function App() {
         {screen === "home" && <Home discovery={discovery} onChoose={chooseRoute} onNavigate={navigate} />}
         {screen === "world" && <World car={car} moveCar={moveCar} found={discovery.foundToken} onFind={() => setDiscovery((d) => ({ ...d, foundToken: true, topics: d.topics.includes("Environment") ? d.topics : [...d.topics, "Environment"] }))} status={status} onNavigate={navigate} />}
         {screen === "mission" && <Mission discovery={discovery} onChoose={chooseRoute} onFinish={finishMission} onRetry={retryMission} onNavigate={navigate} status={status} />}
-        {screen === "library" && <Library search={search} setSearch={setSearch} topic={topic} setTopic={setTopic} records={visibleRecords} onOpen={openRecord} />}
+        {screen === "library" && <Library search={search} setSearch={setSearch} topic={topic} setTopic={setTopic} view={evidenceView} setView={setEvidenceView} records={visibleRecords} onOpen={openRecord} />}
         {screen === "engineer" && <Engineer question={question} setQuestion={setQuestion} reply={reply} asking={asking} onSubmit={askEngineer} currentChoice={discovery.routeChoice} />}
         {screen === "summary" && <Summary discovery={discovery} onNavigate={navigate} onClear={clearDiscoveries} status={status} />}
         {screen === "about" && <About onNavigate={navigate} />}
@@ -323,16 +342,39 @@ function Mission({ discovery, onChoose, onFinish, onRetry, onNavigate, status }:
   );
 }
 
-function Library({ search, setSearch, topic, setTopic, records, onOpen }: { search: string; setSearch: (value: string) => void; topic: string; setTopic: (value: string) => void; records: EvidenceRecord[]; onOpen: (record: EvidenceRecord) => void }) {
+function Library({ search, setSearch, topic, setTopic, view, setView, records, onOpen }: {
+  search: string;
+  setSearch: (value: string) => void;
+  topic: string;
+  setTopic: (value: string) => void;
+  view: EvidenceView;
+  setView: (value: EvidenceView) => void;
+  records: LibraryRecord[];
+  onOpen: (record: LibraryRecord) => void;
+}) {
+  const isReportedView = view === "reported";
   return (
     <div className="content-page library-page">
-      <div className="library-intro"><p className="overline"><span /> EVIDENCE GARAGE</p><h1>Look under the bonnet.</h1><p>Explore how evidence will be presented: with its source, period, review status, and limitations in view.</p></div>
-      <div className="library-trust"><ShieldCheck size={18} /><span>All records shown here are <strong>illustrative samples</strong>. They are not AMF1 claims and cannot support factual answers.</span></div>
-      <div className="library-toolbar"><label className="search-field"><Search size={17} /><span className="sr-only">Search evidence previews</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search topics, terms, or claim types" /></label><label className="filter-select"><span className="sr-only">Filter by topic</span><select value={topic} onChange={(e) => setTopic(e.target.value)}><option>All topics</option><option>Environment</option><option>Belong</option><option>Community</option><option>Governance</option></select><ChevronDown size={15} /></label></div>
-      <div className="library-count"><span>{records.length} SAMPLE RECORD{records.length === 1 ? "" : "S"}</span><span>APPROVAL STATUS SHOWN ON EVERY RECORD</span></div>
-      <div className="evidence-list">{records.length ? records.map((record, index) => <article className="evidence-row" key={record.id}>
-        <div className="record-index">0{index + 1}</div><div className="record-main"><div className="record-meta"><span>{record.topic}</span><b>·</b><span>{record.claimType}</span></div><h2>{record.title}</h2><p>{record.summary}</p><button className="text-link" onClick={() => onOpen(record)}>Open record <ArrowRight size={15} /></button></div><div className="record-source"><span className="review-label"><span /> {record.review}</span><span>{record.period}</span><span>{record.source}</span></div><ArrowUpRight className="record-arrow" size={17} />
-      </article>) : <div className="empty-results"><Search size={20} /><h2>No preview records match</h2><p>Try a different search or topic.</p></div>}</div>
+      <div className="library-intro"><p className="overline"><span /> SOURCE-REVIEWED EVIDENCE</p><h1>Source-reviewed evidence</h1><p>Browse a limited set of claims with their source, reporting period, review note, and limitations in view.</p></div>
+      <div className="library-trust"><ShieldCheck size={18} /><span>Only reviewed report results appear as <strong>Reported impact</strong>. Sources are not endorsements, and this library is not complete.</span></div>
+      <div className="evidence-views" aria-label="Evidence views">
+        <button aria-pressed={isReportedView} onClick={() => setView("reported")}>Reported impact</button>
+        <button aria-pressed={!isReportedView} onClick={() => setView("illustrative")}>Illustrative samples</button>
+      </div>
+      {!isReportedView && <p className="sample-explainer">Illustrative samples are examples, not reported claims.</p>}
+      <div className="library-toolbar"><label className="search-field"><Search size={17} /><span className="sr-only">Search evidence library</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search topics, terms, or claim types" /></label><label className="filter-select"><span className="sr-only">Filter by topic</span><select value={topic} onChange={(e) => setTopic(e.target.value)}><option>All topics</option><option>Environment</option><option>Belong</option><option>Community</option><option>Governance</option></select><ChevronDown size={15} /></label></div>
+      <div className="library-count"><span>{records.length} {isReportedView ? "REPORTED CLAIM" : "ILLUSTRATIVE SAMPLE"}{records.length === 1 ? "" : "S"}</span><span>{isReportedView ? "REVIEWED CLAIMS ONLY" : "NOT REPORTED IMPACT"}</span></div>
+      <div className="evidence-list">{records.length ? records.map((record, index) => {
+        const illustrative = isIllustrativeSample(record);
+        const summary = illustrative ? record.summary : record.claim;
+        const claimType = illustrative ? record.claimType : record.claimType === "report_result" ? "Report result" : record.claimType === "target" ? "Target" : "Method";
+        const period = illustrative ? record.period : record.reportingPeriod ?? "No reporting period stated";
+        const source = illustrative ? record.source : `${record.source.title} · ${record.source.edition}`;
+        const review = illustrative ? record.review : "Source-reviewed for this prototype";
+        return <article className="evidence-row" key={record.id}>
+          <div className="record-index">0{index + 1}</div><div className="record-main"><div className="record-meta"><span>{record.topic}</span><b>·</b><span>{claimType}</span></div><h2>{record.title}</h2><p>{summary}</p><button className="text-link" aria-label={`Open record: ${record.title}`} onClick={() => onOpen(record)}>Open record <ArrowRight size={15} /></button></div><div className="record-source"><span className="review-label"><span /> {review}</span><span>{period}</span><span>{source}</span></div><ArrowUpRight className="record-arrow" size={17} />
+        </article>;
+      }) : <div className="empty-results"><Search size={20} /><h2>No records match</h2><p>Try a different search or topic.</p></div>}</div>
       <div className="library-method"><span>01 — CONTENT STANDARD</span><p>Reporting period and publication date stay distinct. Targets, commitments, outputs, and outcomes keep their own labels.</p><span className="method-mark">MM</span></div>
     </div>
   );
@@ -381,7 +423,7 @@ function About({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
   return <div className="content-page about-page"><p className="overline"><span /> HOW THIS PROTOTYPE WORKS</p><h1>Play is the invitation.<br /><em>Evidence is the point.</em></h1><p className="about-lede">Impact Drive keeps three things separate: a fictional game, source-backed evidence, and explanations that point back to that evidence.</p><div className="about-pillars"><article><span>01 / PLAY</span><h2>Mission scenario</h2><p>Freight route choices and outcomes are deterministic game scenarios. They are not operational AMF1 data.</p></article><article><span>02 / EVIDENCE</span><h2>Reviewed records</h2><p>This prototype uses illustrative content only. Approved source records will include a source location, reporting period, review state, and limitations.</p></article><article><span>03 / EXPLANATION</span><h2>Prepared response</h2><p>The Race Engineer is currently a prepared fallback. Live AI is not connected, and prepared text is labelled as such.</p></article></div><div className="about-boundary"><ShieldCheck size={20} /><div><strong>Prototype boundary</strong><p>No sign-in, personal-data collection, real-time telemetry, or claimed real-world impact. Your session summary stays in this browser.</p></div></div><button className="button button-primary" onClick={() => onNavigate("world")}>Enter the world <ArrowRight size={16} /></button></div>;
 }
 
-function EvidenceDialog({ record, onClose }: { record: EvidenceRecord; onClose: () => void }) {
+function EvidenceDialog({ record, onClose }: { record: LibraryRecord; onClose: () => void }) {
   const closeButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -399,7 +441,12 @@ function EvidenceDialog({ record, onClose }: { record: EvidenceRecord; onClose: 
       previousFocus?.focus();
     };
   }, [onClose]);
-  return <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}><section className="evidence-dialog" role="dialog" aria-modal="true" aria-labelledby="record-title"><button ref={closeButton} className="dialog-close icon-button" aria-label="Close record" onClick={onClose}><X size={19} /></button><p className="overline"><span /> ILLUSTRATIVE RECORD / {record.topic.toUpperCase()}</p><h2 id="record-title">{record.title}</h2><span className="review-label large"><span /> {record.review.toUpperCase()}</span><p className="dialog-summary">{record.summary}</p><div className="record-fields"><div><span>CLAIM TYPE</span><strong>{record.claimType}</strong></div><div><span>REPORTING PERIOD</span><strong>{record.period}</strong></div><div><span>SOURCE</span><strong>{record.source}</strong></div><div><span>LOCATION</span><strong>{record.page}</strong></div></div><div className="dialog-limits"><Info size={16} /><div><strong>Limitations</strong>{record.limitations.map((limitation) => <p key={limitation}>{limitation}</p>)}</div></div><p className="dialog-footnote">A source link will be shown here when approved report material is added.</p></section></div>;
+  if (isIllustrativeSample(record)) {
+    return <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}><section className="evidence-dialog" role="dialog" aria-modal="true" aria-labelledby="record-title"><button ref={closeButton} className="dialog-close icon-button" aria-label="Close record" onClick={onClose}><X size={19} /></button><p className="overline"><span /> ILLUSTRATIVE SAMPLE / {record.topic.toUpperCase()}</p><h2 id="record-title">{record.title}</h2><span className="review-label large"><span /> {record.review.toUpperCase()}</span><p className="dialog-summary">{record.summary}</p><div className="record-fields"><div><span>CLAIM TYPE</span><strong>{record.claimType}</strong></div><div><span>REPORTING PERIOD</span><strong>{record.period}</strong></div><div><span>SOURCE</span><strong>{record.source}</strong></div><div><span>LOCATION</span><strong>{record.page}</strong></div></div><div className="dialog-limits"><Info size={16} /><div><strong>Limitations</strong>{record.limitations.map((limitation) => <p key={limitation}>{limitation}</p>)}</div></div><p className="dialog-footnote">Illustrative sample only. It is not source-backed evidence.</p></section></div>;
+  }
+
+  const value = record.value === undefined ? "Not stated" : `${record.value}${record.unit ? ` ${record.unit}` : ""}`;
+  return <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}><section className="evidence-dialog" role="dialog" aria-modal="true" aria-labelledby="record-title"><button ref={closeButton} className="dialog-close icon-button" aria-label="Close record" onClick={onClose}><X size={19} /></button><p className="overline"><span /> SOURCE-REVIEWED CLAIM / {record.topic.toUpperCase()}</p><h2 id="record-title">{record.title}</h2><span className="review-label large"><span /> Source-reviewed for this prototype</span><p className="dialog-summary">{record.claim}</p><div className="record-fields"><div><span>CLAIM TYPE</span><strong>{record.claimType.replace("_", " ")}</strong></div><div><span>REPORTED VALUE</span><strong>{value}</strong></div><div><span>REPORTING PERIOD</span><strong>{record.reportingPeriod ?? "No reporting period stated"}</strong></div><div><span>SOURCE TITLE / EDITION</span><strong>{record.source.title} · {record.source.edition}</strong></div><div><span>PUBLICATION DATE</span><strong>{record.source.publicationDate ?? "Not stated in source"}</strong></div><div><span>SOURCE LOCATION</span><strong>{record.source.location ?? "Not stated in source"}</strong></div></div><div className="dialog-limits"><Info size={16} /><div><strong>Review note</strong><p>{record.reviewNote}</p><strong>Limitations</strong>{record.limitations.map((limitation) => <p key={limitation}>{limitation}</p>)}</div></div><p className="dialog-footnote"><a href={record.source.url} target="_blank" rel="noreferrer">Open source report</a> · This source does not imply AMF1 endorsement of this app.</p></section></div>;
 }
 
 function PlaneIcon() { return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="m4 18 10-2 5-10c.5-1 2.3-.7 2.2.5L20 15l7-1.6c1.5-.3 2.2 1.5.8 2.2L20 20l-2 7c-.3 1.1-2 1.1-2.3 0L14 21l-7 1.2c-1.4.2-2-1.6-.7-2.2L12 17l-7-1c-1.4-.2-1.4-2.2 0-2l8 1.2" fill="currentColor" /></svg>; }

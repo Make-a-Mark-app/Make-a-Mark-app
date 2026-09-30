@@ -4,7 +4,7 @@ An inclusive hackathon R1 prototype plan for one fictional freight mission, a ma
 
 ## Current prototype status
 
-The current local app is React/Vite with an Express API. The fictional freight mission and its deterministic outcome use shared runtime-validated contracts in the browser and API. A small Discovery recap stays in this browser and can be cleared from the summary page. Evidence content remains illustrative until individual source-backed claims have been reviewed. The R1 telemetry fixture, hosted model integration, Docker Compose, and Grafana observability services remain planned work. Documentation describes planned behavior; it is not a claim that those features are implemented.
+The current local app is React/Vite with an Express API. The fictional freight mission and its deterministic outcome use shared runtime-validated contracts in the browser and API. A small Discovery recap stays in this browser and can be cleared from the summary page. The evidence library includes three source-reviewed claims from the official Make A Mark ESG Report 2024, with scope notes and limitations; illustrative samples remain separate. The R1 telemetry fixture, hosted model integration, Docker Compose, and Grafana observability services remain planned work. Documentation describes planned behavior; it is not a claim that those features are implemented.
 
 ## R1 boundaries
 
@@ -51,5 +51,6 @@ Run the agreed full-app acceptance suite with `npm run test:e2e`. It starts the 
 - [Consolidated architecture and component design](docs/Make-a-Mark-architecture-and-component.md)
 - [Architecture decision record](docs/adr/0002-inclusive-r1-architecture.md)
 - [Visual fidelity ledger](docs/design/fidelity-ledger.md)
+- [Evidence source review notes](docs/research/evidence-review.md)
 
 Docker Compose and Grafana instructions are target plans. They become runnable after the implementation adds the described files and configuration. An optional hosted demo profile uses Google Cloud Run with an HTTPS load balancer; it is documented separately and is not needed for local development. No Google Cloud project or deployment resources are configured yet.

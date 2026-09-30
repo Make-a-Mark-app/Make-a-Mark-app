@@ -1,15 +1,20 @@
 import express from "express";
 import { createServer } from "node:http";
+import { readFileSync } from "node:fs";
 import { createMissionOutcome, parseMissionDefinition } from "../shared/contracts/mission.js";
+import { isReportedImpact, parseEvidenceDataset } from "../shared/contracts/evidence.js";
 import { missionScenario } from "../shared/mission.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 4178);
+const evidenceDataset = parseEvidenceDataset(JSON.parse(
+  readFileSync(new URL("../shared/data/evidence.r1.v1.json", import.meta.url), "utf8"),
+));
 
 app.use(express.json({ limit: "8kb" }));
 
 app.get("/api/health", (_request, response) => {
-  response.json({ status: "ok", mode: "prototype", evidence: "illustrative-only" });
+  response.json({ status: "ok", mode: "prototype", evidence: "source-reviewed" });
 });
 
 app.get("/api/mission", (_request, response) => {
@@ -30,6 +35,14 @@ app.post("/api/mission/outcome", (request, response) => {
   response.json(outcome);
 });
 
+app.get("/api/evidence", (_request, response) => {
+  if (!evidenceDataset) {
+    response.status(500).json({ error: "Evidence records are unavailable." });
+    return;
+  }
+  response.json({ version: evidenceDataset.version, records: evidenceDataset.records.filter(isReportedImpact) });
+});
+
 app.post("/api/engineer", (request, response) => {
   const question = typeof request.body?.question === "string" ? request.body.question.trim() : "";
   if (!question || question.length > 500) {
@@ -38,10 +51,10 @@ app.post("/api/engineer", (request, response) => {
   }
 
   response.json({
-    answer: "I can explain the mission choices, but this prototype does not yet contain approved report evidence. Add reviewed records to get a sourced explanation here.",
-    whatSourceStates: "No approved source records are connected in this prototype build.",
+    answer: "I can explain the mission choices. The evidence library contains a small source-reviewed set, but this prepared response does not retrieve or interpret those records yet.",
+    whatSourceStates: "The library is available to browse; this response has not retrieved a source record.",
     whatItMeans: "The route outcome is a fictional game scenario. It does not represent AMF1 operations or an environmental result.",
-    limitations: ["Prepared response; live AI is not connected.", "No source evidence has been approved for this prototype."],
+    limitations: ["Prepared response; live AI and evidence retrieval are not connected."],
     citations: [],
     relatedRecordIds: [],
     mode: "prepared_fallback",

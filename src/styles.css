@@ -220,6 +220,10 @@ h1, h2, h3, p { margin-top: 0; }
 .library-trust { display: flex; align-items: center; gap: 11px; border-top: 1px solid rgba(229,242,63,.22); border-bottom: 1px solid rgba(229,242,63,.22); padding: 12px 0; color: #c4cfc4; font-size: 10px; }
 .library-trust svg { flex: 0 0 auto; color: var(--yellow); }
 .library-trust strong { color: var(--yellow); font-weight: 500; }
+.evidence-views { display: flex; gap: 8px; margin-top: 20px; }
+.evidence-views button { padding: 10px 14px; border: 1px solid var(--line-strong); color: var(--muted); background: transparent; font: 9px var(--mono); letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
+.evidence-views button[aria-pressed="true"] { color: var(--ink); border-color: var(--yellow); background: var(--yellow); }
+.sample-explainer { margin: 13px 0 0; color: var(--muted); font-size: 11px; }
 .library-toolbar { display: flex; gap: 10px; margin-top: 24px; }
 .search-field { display: flex; flex: 1; align-items: center; gap: 10px; height: 43px; padding: 0 12px; color: var(--dim); border: 1px solid var(--line-strong); background: rgba(8,32,25,.7); }
 .search-field input { width: 100%; outline: none; border: 0; color: var(--text); background: transparent; font-size: 11px; }

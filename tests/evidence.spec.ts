@@ -66,7 +66,7 @@ test("the evidence API exposes validated source-reviewed claims with provenance"
 
 test("visitors can browse reviewed claims separately from illustrative samples", async ({ page }) => {
   await page.goto("/library");
-  await expect(page.getByRole("heading", { name: "Source-reviewed evidence" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Evidence library" })).toBeVisible();
   await expect(page.getByText("779,682.30 kWh of renewable solar energy generated", { exact: false })).toBeVisible();
   await expect(page.getByText(/23 nationalities represented within Aston Martin Aramco Formula One/)).toBeVisible();
   await expect(page.getByText("Report result").first()).toBeVisible();

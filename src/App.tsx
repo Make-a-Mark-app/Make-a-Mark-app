@@ -37,6 +37,11 @@ const navItems: Array<{ id: Screen; label: string }> = [
   { id: "telemetry", label: "Simulated live view" },
 ];
 
+const screenPaths: Record<Screen, string> = {
+  home: "/", world: "/world", mission: "/mission/freight", library: "/library",
+  telemetry: "/telemetry", engineer: "/engineer", summary: "/summary", about: "/about",
+};
+
 function readSavedDiscovery(): DiscoveryRecap {
   try {
     const raw = localStorage.getItem("impact-drive-discovery");
@@ -106,11 +111,7 @@ function App() {
   }, []);
 
   function navigate(next: Screen) {
-    const path: Record<Screen, string> = {
-      home: "/", world: "/world", mission: "/mission/freight", library: "/library",
-      telemetry: "/telemetry", engineer: "/engineer", summary: "/summary", about: "/about",
-    };
-    window.history.pushState({}, "", path[next]);
+    window.history.pushState({}, "", screenPaths[next]);
     setScreen(next);
     setSelectedRecord(null);
     setMenuOpen(false);
@@ -221,7 +222,7 @@ function App() {
           {menuOpen ? <X size={19} /> : <Menu size={20} />}
         </button>
         <nav className={`primary-nav ${menuOpen ? "open" : ""}`} aria-label="Main navigation">
-          {navItems.map((item) => <a key={item.id} className={activeNav === item.id ? "active" : ""} href={item.id === "world" ? "/world" : item.id === "mission" ? "/mission/freight" : item.id === "library" ? "/library" : "/telemetry"} onClick={(e) => { e.preventDefault(); navigate(item.id); }}>{item.label}</a>)}
+          {navItems.map((item) => <a key={item.id} className={activeNav === item.id ? "active" : ""} href={screenPaths[item.id]} onClick={(e) => { e.preventDefault(); navigate(item.id); }}>{item.label}</a>)}
         </nav>
         <div className="topbar-meta"><span className="session-dot" /> Local prototype <span className="meta-divider">·</span> No account</div>
       </header>

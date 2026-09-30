@@ -1,9 +1,15 @@
 import { expect, test } from "@playwright/test";
+import { parseTelemetryDataset } from "../shared/contracts/telemetry";
 
 test("the telemetry API returns an ordered, versioned fixture with explicit timestamps", async ({ request }) => {
   const response = await request.get("/api/telemetry");
   expect(response.ok()).toBeTruthy();
   const fixture = await response.json();
+
+  expect(parseTelemetryDataset(fixture)).not.toBeNull();
+  const impossibleTimestamp = structuredClone(fixture);
+  impossibleTimestamp.snapshots[0].timestamp = "2024-02-30T10:00:00+01:00";
+  expect(parseTelemetryDataset(impossibleTimestamp)).toBeNull();
 
   expect(fixture.version).toBe("telemetry-r1-v1");
   expect(fixture.snapshots.map((snapshot: { stepId: string; status: string }) => [snapshot.stepId, snapshot.status])).toEqual([

@@ -1,5 +1,7 @@
 import evidenceData from "../shared/data/evidence.r1.v1.json";
+import telemetryData from "../shared/data/telemetry.r1.v1.json";
 import { isReportedImpact, parseEvidenceDataset, type EvidenceRecord } from "../shared/contracts/evidence";
+import { parseTelemetryDataset } from "../shared/contracts/telemetry";
 import { missionScenario } from "../shared/mission";
 
 const parsedEvidence = parseEvidenceDataset(evidenceData);
@@ -7,6 +9,10 @@ if (!parsedEvidence) throw new Error("The source-reviewed evidence file is inval
 
 export type { EvidenceRecord };
 export const evidenceRecords = parsedEvidence.records.filter(isReportedImpact);
+
+const parsedTelemetry = parseTelemetryDataset(telemetryData);
+if (!parsedTelemetry) throw new Error("The simulated telemetry fixture is invalid.");
+export const telemetrySnapshots = parsedTelemetry.snapshots;
 
 export type IllustrativeSample = {
   id: string;

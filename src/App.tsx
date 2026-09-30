@@ -3,12 +3,12 @@ import {
   ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpRight, BookOpen, Check,
   ChevronDown, Compass, Info, MapPin, Menu, Search, ShieldCheck, Sparkles, X,
 } from "lucide-react";
-import { evidenceRecords, illustrativeSamples, routeOptions, type EvidenceRecord, type IllustrativeSample, type RouteId } from "./data";
+import { evidenceRecords, illustrativeSamples, routeOptions, telemetrySnapshots, type EvidenceRecord, type IllustrativeSample, type RouteId } from "./data";
 import { EMPTY_DISCOVERY, hasDiscovery, parseDiscoveryRecap, type DiscoveryRecap } from "../shared/contracts/discovery";
 import { createMissionOutcome } from "../shared/contracts/mission";
 import { missionScenario } from "../shared/mission";
 
-type Screen = "home" | "world" | "mission" | "library" | "engineer" | "summary" | "about";
+type Screen = "home" | "world" | "mission" | "library" | "telemetry" | "engineer" | "summary" | "about";
 type EngineerReply = {
   answer: string;
   whatSourceStates: string;
@@ -34,6 +34,7 @@ const navItems: Array<{ id: Screen; label: string }> = [
   { id: "world", label: "World" },
   { id: "mission", label: "Freight mission" },
   { id: "library", label: "Evidence library" },
+  { id: "telemetry", label: "Simulated live view" },
 ];
 
 function readSavedDiscovery(): DiscoveryRecap {
@@ -49,6 +50,7 @@ function screenFromPath(path: string): Screen {
   if (route === "/world") return "world";
   if (route === "/mission/freight") return "mission";
   if (route === "/library" || route.startsWith("/library/")) return "library";
+  if (route === "/telemetry") return "telemetry";
   if (route === "/engineer") return "engineer";
   if (route === "/summary") return "summary";
   if (route === "/about") return "about";
@@ -83,6 +85,7 @@ function App() {
   const [reply, setReply] = useState<EngineerReply | null>(null);
   const [asking, setAsking] = useState(false);
   const [status, setStatus] = useState("");
+  const [telemetryIndex, setTelemetryIndex] = useState(0);
 
   useEffect(() => {
     try {
@@ -105,7 +108,7 @@ function App() {
   function navigate(next: Screen) {
     const path: Record<Screen, string> = {
       home: "/", world: "/world", mission: "/mission/freight", library: "/library",
-      engineer: "/engineer", summary: "/summary", about: "/about",
+      telemetry: "/telemetry", engineer: "/engineer", summary: "/summary", about: "/about",
     };
     window.history.pushState({}, "", path[next]);
     setScreen(next);
@@ -218,7 +221,7 @@ function App() {
           {menuOpen ? <X size={19} /> : <Menu size={20} />}
         </button>
         <nav className={`primary-nav ${menuOpen ? "open" : ""}`} aria-label="Main navigation">
-          {navItems.map((item) => <a key={item.id} className={activeNav === item.id ? "active" : ""} href={item.id === "world" ? "/world" : item.id === "mission" ? "/mission/freight" : "/library"} onClick={(e) => { e.preventDefault(); navigate(item.id); }}>{item.label}</a>)}
+          {navItems.map((item) => <a key={item.id} className={activeNav === item.id ? "active" : ""} href={item.id === "world" ? "/world" : item.id === "mission" ? "/mission/freight" : item.id === "library" ? "/library" : "/telemetry"} onClick={(e) => { e.preventDefault(); navigate(item.id); }}>{item.label}</a>)}
         </nav>
         <div className="topbar-meta"><span className="session-dot" /> Local prototype <span className="meta-divider">·</span> No account</div>
       </header>
@@ -228,6 +231,7 @@ function App() {
         {screen === "world" && <World car={car} moveCar={moveCar} found={discovery.foundToken} onFind={() => setDiscovery((d) => ({ ...d, foundToken: true, topics: d.topics.includes("Environment") ? d.topics : [...d.topics, "Environment"] }))} status={status} onNavigate={navigate} />}
         {screen === "mission" && <Mission discovery={discovery} onChoose={chooseRoute} onFinish={finishMission} onRetry={retryMission} onNavigate={navigate} status={status} />}
         {screen === "library" && <Library search={search} setSearch={setSearch} topic={topic} setTopic={setTopic} view={evidenceView} setView={setEvidenceView} records={visibleRecords} onOpen={openRecord} />}
+        {screen === "telemetry" && <Telemetry index={telemetryIndex} onAdvance={() => setTelemetryIndex((index) => Math.min(index + 1, telemetrySnapshots.length - 1))} />}
         {screen === "engineer" && <Engineer question={question} setQuestion={setQuestion} reply={reply} asking={asking} onSubmit={askEngineer} currentChoice={discovery.routeChoice} />}
         {screen === "summary" && <Summary discovery={discovery} onNavigate={navigate} onClear={clearDiscoveries} status={status} />}
         {screen === "about" && <About onNavigate={navigate} />}
@@ -240,6 +244,44 @@ function App() {
 
       {selectedRecord && <EvidenceDialog record={selectedRecord} onClose={closeRecord} />}
     </div>
+  );
+}
+
+function Telemetry({ index, onAdvance }: { index: number; onAdvance: () => void }) {
+  const snapshot = telemetrySnapshots[index];
+  const statusLabel = snapshot.status[0].toUpperCase() + snapshot.status.slice(1);
+  return (
+    <section className="telemetry-page" aria-labelledby="telemetry-title">
+      <div className="telemetry-heading">
+        <div>
+          <p className="overline"><span /> Simulated telemetry</p>
+          <h1 id="telemetry-title">Simulated live view</h1>
+          <p>A fixed sequence of sample snapshots for exploring feed states. These values are not live AMF1 telemetry.</p>
+        </div>
+        <div className={`telemetry-state telemetry-state-${snapshot.status}`} role="status" aria-live="polite">
+          <span className="telemetry-state-dot" />{statusLabel}
+        </div>
+      </div>
+      <div className="telemetry-meta">
+        <span>SIMULATED TELEMETRY</span>
+        <time dateTime={snapshot.timestamp}>{snapshot.timestamp}</time>
+        <span>SNAPSHOT {index + 1} / {telemetrySnapshots.length}</span>
+      </div>
+      <div className="telemetry-signals" aria-label="Snapshot signals">
+        {snapshot.signals.map((signal) => (
+          <article className="telemetry-signal" key={signal.id}>
+            <h2>{signal.name}</h2>
+            <p className={signal.value === null ? "telemetry-value telemetry-value-missing" : "telemetry-value"}>
+              {signal.value === null ? <>Unavailable<span className="telemetry-unit"> · {signal.unit}</span></> : <>{signal.value} <span className="telemetry-unit">{signal.unit}</span></>}
+            </p>
+          </article>
+        ))}
+      </div>
+      <div className="telemetry-controls">
+        <p>Advance manually through the prepared sequence. No timestamps or values are generated from your device clock.</p>
+        <button className="button button-primary" onClick={onAdvance} disabled={index === telemetrySnapshots.length - 1}>Next snapshot <ArrowRight size={17} /></button>
+      </div>
+    </section>
   );
 }
 

@@ -1,0 +1,45 @@
+{
+  "version": "telemetry-r1-v1",
+  "snapshots": [
+    {
+      "stepId": "step-01",
+      "timestamp": "2024-07-07T10:00:00+01:00",
+      "status": "updating",
+      "signals": [
+        { "id": "battery-temp", "name": "Battery temperature", "value": 78, "unit": "°C" },
+        { "id": "tyre-pressure", "name": "Tyre pressure", "value": 1.8, "unit": "bar" },
+        { "id": "energy-recovery", "name": "Energy recovery", "value": 64, "unit": "%" }
+      ]
+    },
+    {
+      "stepId": "step-02",
+      "timestamp": "2024-07-07T10:01:00+01:00",
+      "status": "delayed",
+      "signals": [
+        { "id": "battery-temp", "name": "Battery temperature", "value": 78, "unit": "°C" },
+        { "id": "tyre-pressure", "name": "Tyre pressure", "value": 1.8, "unit": "bar" },
+        { "id": "energy-recovery", "name": "Energy recovery", "value": 63, "unit": "%" }
+      ]
+    },
+    {
+      "stepId": "step-03",
+      "timestamp": "2024-07-07T10:02:00+01:00",
+      "status": "stale",
+      "signals": [
+        { "id": "battery-temp", "name": "Battery temperature", "value": 79, "unit": "°C" },
+        { "id": "tyre-pressure", "name": "Tyre pressure", "value": 1.9, "unit": "bar" },
+        { "id": "energy-recovery", "name": "Energy recovery", "value": 62, "unit": "%" }
+      ]
+    },
+    {
+      "stepId": "step-04",
+      "timestamp": "2024-07-07T10:03:00+01:00",
+      "status": "unavailable",
+      "signals": [
+        { "id": "battery-temp", "name": "Battery temperature", "value": null, "unit": "°C" },
+        { "id": "tyre-pressure", "name": "Tyre pressure", "value": null, "unit": "bar" },
+        { "id": "energy-recovery", "name": "Energy recovery", "value": null, "unit": "%" }
+      ]
+    }
+  ]
+}

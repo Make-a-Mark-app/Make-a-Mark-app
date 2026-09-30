@@ -3,12 +3,16 @@ import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { createMissionOutcome, parseMissionDefinition } from "../shared/contracts/mission.js";
 import { isReportedImpact, parseEvidenceDataset } from "../shared/contracts/evidence.js";
+import { parseTelemetryDataset } from "../shared/contracts/telemetry.js";
 import { missionScenario } from "../shared/mission.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 4178);
 const evidenceDataset = parseEvidenceDataset(JSON.parse(
   readFileSync(new URL("../shared/data/evidence.r1.v1.json", import.meta.url), "utf8"),
+));
+const telemetryDataset = parseTelemetryDataset(JSON.parse(
+  readFileSync(new URL("../shared/data/telemetry.r1.v1.json", import.meta.url), "utf8"),
 ));
 
 app.use(express.json({ limit: "8kb" }));
@@ -41,6 +45,14 @@ app.get("/api/evidence", (_request, response) => {
     return;
   }
   response.json({ version: evidenceDataset.version, records: evidenceDataset.records.filter(isReportedImpact) });
+});
+
+app.get("/api/telemetry", (_request, response) => {
+  if (!telemetryDataset) {
+    response.status(500).json({ error: "The simulated telemetry fixture is unavailable." });
+    return;
+  }
+  response.json(telemetryDataset);
 });
 
 app.post("/api/engineer", (request, response) => {

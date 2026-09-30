@@ -184,7 +184,7 @@ function App() {
 
   function finishMission() {
     if (!discovery.routeChoice) return;
-    setDiscovery((d) => ({ ...d, missionComplete: true, foundToken: true }));
+    setDiscovery((d) => ({ ...d, missionComplete: true }));
     setStatus("Mission complete. Your route choice is recorded on this device only.");
   }
 

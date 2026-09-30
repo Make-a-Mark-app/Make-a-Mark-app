@@ -18,17 +18,25 @@ test("the API exposes a validated mission and deterministic outcome", async ({ r
   expect(mission).not.toHaveProperty("telemetry");
   expect(mission).not.toHaveProperty("evidence");
 
-  const outcomeResponse = await request.post("/api/mission/outcome", {
-    data: { missionId: "freight", configId: "freight-r1-v1", choiceId: "air" },
-  });
-  expect(outcomeResponse.ok()).toBeTruthy();
-  expect(await outcomeResponse.json()).toEqual({
-    missionId: "freight",
-    configId: "freight-r1-v1",
-    choiceId: "air",
-    outcomeLabel: "Fictional mission result",
-    feedback: "Your game scenario prioritizes a tight delivery window.",
-  });
+  const feedbackByChoice = {
+    air: "Your game scenario prioritizes a tight delivery window.",
+    sea: "Your game scenario trades immediacy for a steadier journey.",
+    road: "Your game scenario keeps the final connection flexible.",
+  };
+
+  for (const [choiceId, feedback] of Object.entries(feedbackByChoice)) {
+    const outcomeResponse = await request.post("/api/mission/outcome", {
+      data: { missionId: "freight", configId: "freight-r1-v1", choiceId },
+    });
+    expect(outcomeResponse.ok()).toBeTruthy();
+    expect(await outcomeResponse.json()).toEqual({
+      missionId: "freight",
+      configId: "freight-r1-v1",
+      choiceId,
+      outcomeLabel: "Fictional mission result",
+      feedback,
+    });
+  }
 });
 
 test("the API rejects an unknown choice and unrelated outcome data", async ({ request }) => {
@@ -82,6 +90,16 @@ test("retry preserves other discoveries and visitors can clear the local recap",
   await expect(page.getByText("Not explored yet")).toBeVisible();
   await expect(page.getByText("Not complete yet")).toBeVisible();
   await page.reload();
+  await expect(page.getByText("Not explored yet")).toBeVisible();
+});
+
+test("completing the mission does not record a World discovery", async ({ page }) => {
+  await page.goto("/mission/freight");
+  await page.getByRole("radio", { name: /Air/ }).click();
+  await page.getByRole("button", { name: "Complete mission" }).click();
+  await page.getByRole("button", { name: "My discoveries" }).click();
+
+  await expect(page.getByText("Complete", { exact: true })).toBeVisible();
   await expect(page.getByText("Not explored yet")).toBeVisible();
 });
 

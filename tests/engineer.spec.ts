@@ -55,7 +55,7 @@ test("keyword retrieval supports the reviewed Belong and Community claims", asyn
 });
 
 test("the Engineer declines a factual question unsupported by reviewed records or selected context", async ({ request }) => {
-  for (const question of ["What is the team’s total lifetime carbon footprint?", "Does solar generation improve race performance?"]) {
+  for (const question of ["What is the team’s total lifetime carbon footprint?", "Does solar generation improve race performance?", "What is it?"]) {
     const response = await request.post("/api/engineer", { data: { question } });
     expect(response.ok()).toBeTruthy();
     expect(await response.json()).toMatchObject({

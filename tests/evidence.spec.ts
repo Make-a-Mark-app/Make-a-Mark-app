@@ -42,12 +42,14 @@ test("evidence search ranks keyword matches, applies filters, and caps results",
     id: `solar-copy-${index}`,
     title: `Solar generation example ${index}`,
   }));
-  const matches = searchEvidenceRecords(expandedRecords, "solar generation", { limit: 99 });
+  const matches = searchEvidenceRecords(expandedRecords, "solar generation", { maxResults: 99 });
   expect(matches).toHaveLength(MAX_EVIDENCE_SEARCH_RESULTS);
   expect(matches.map((record) => record.id)).toEqual(["solar-copy-0", "solar-copy-1", "solar-copy-2"]);
 
   const oneKeyword = searchEvidenceRecords(dataset.records, "solar", { topic: "Environment", reportingPeriod: "2024" });
   expect(oneKeyword.map((record) => record.id)).toEqual(["env-2024-solar-generation"]);
+  expect(searchEvidenceRecords(dataset.records, "what is it")).toEqual([]);
+  expect(searchEvidenceRecords(dataset.records, "")).toHaveLength(3);
   expect(searchEvidenceRecords(dataset.records, "unrelated claim", { topic: "Belong" })).toEqual([]);
 });
 

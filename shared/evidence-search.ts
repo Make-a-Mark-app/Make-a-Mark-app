@@ -11,7 +11,8 @@ const ignoredSearchTerms = new Set([
 export type EvidenceSearchFilters = {
   topic?: EvidenceTopic;
   reportingPeriod?: string | null;
-  limit?: number;
+  /** Caller may request fewer records; the deterministic hard cap remains three. */
+  maxResults?: number;
 };
 
 export function normalizeEvidenceTokens(value: string): string[] {
@@ -36,9 +37,9 @@ export function searchEvidenceRecords(
   query: string,
   filters: EvidenceSearchFilters = {},
 ): EvidenceRecord[] {
-  const maximum = filters.limit === undefined || !Number.isFinite(filters.limit)
+  const maximum = filters.maxResults === undefined || !Number.isFinite(filters.maxResults)
     ? MAX_EVIDENCE_SEARCH_RESULTS
-    : Math.min(MAX_EVIDENCE_SEARCH_RESULTS, Math.max(0, Math.floor(filters.limit)));
+    : Math.min(MAX_EVIDENCE_SEARCH_RESULTS, Math.max(0, Math.floor(filters.maxResults)));
   if (maximum === 0) return [];
 
   const queryTokens = normalizeEvidenceTokens(query);
@@ -48,7 +49,7 @@ export function searchEvidenceRecords(
     && (filters.topic === undefined || record.topic === filters.topic)
     && (filters.reportingPeriod === undefined || record.reportingPeriod === filters.reportingPeriod));
 
-  if (terms.length === 0) return candidates.slice(0, maximum);
+  if (terms.length === 0) return query.trim() === "" ? candidates.slice(0, maximum) : [];
 
   return candidates.map((record, index) => {
     const words = new Set(normalizeEvidenceTokens(searchText(record)));

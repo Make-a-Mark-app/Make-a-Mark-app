@@ -10,7 +10,7 @@ const evidenceDataset = parseEvidenceDataset(JSON.parse(
   readFileSync(new URL("../shared/data/evidence.r1.v1.json", import.meta.url), "utf8"),
 ));
 const telemetryDataset = parseTelemetryDataset(JSON.parse(
-  readFileSync(new URL("../shared/data/telemetry.r1.v1.json", import.meta.url), "utf8"),
+  readFileSync(new URL("../shared/data/telemetry.r1.v2.json", import.meta.url), "utf8"),
 ));
 
 export function createApp(options: { provider?: EngineerProvider } = {}): Express {

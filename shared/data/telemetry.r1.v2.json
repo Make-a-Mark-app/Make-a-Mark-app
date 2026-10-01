@@ -1,0 +1,49 @@
+{
+  "version": "telemetry-r1-v2",
+  "snapshots": [
+    {
+      "stepId": "step-01",
+      "timestamp": "2024-07-07T10:00:00+01:00",
+      "status": "updating",
+      "signals": [
+        { "id": "speed", "name": "Speed", "valueType": "number", "value": 263, "unit": "km/h", "interpretation": "Vehicle speed in this simulated snapshot." },
+        { "id": "gear", "name": "Gear", "valueType": "integer", "value": 7, "unit": "gear", "interpretation": "Current selected gear in this simulated snapshot." },
+        { "id": "throttle", "name": "Throttle", "valueType": "number", "value": 82, "unit": "%", "interpretation": "Accelerator input in this simulated snapshot." },
+        { "id": "brake", "name": "Brake", "valueType": "number", "value": 0, "unit": "%", "interpretation": "Brake input in this simulated snapshot." }
+      ]
+    },
+    {
+      "stepId": "step-02",
+      "timestamp": "2024-07-07T10:01:00+01:00",
+      "status": "delayed",
+      "signals": [
+        { "id": "speed", "name": "Speed", "valueType": "number", "value": 241, "unit": "km/h", "interpretation": "Vehicle speed in this simulated snapshot." },
+        { "id": "gear", "name": "Gear", "valueType": "integer", "value": 6, "unit": "gear", "interpretation": "Current selected gear in this simulated snapshot." },
+        { "id": "throttle", "name": "Throttle", "valueType": "number", "value": 64, "unit": "%", "interpretation": "Accelerator input in this simulated snapshot." },
+        { "id": "brake", "name": "Brake", "valueType": "number", "value": 0, "unit": "%", "interpretation": "Brake input in this simulated snapshot." }
+      ]
+    },
+    {
+      "stepId": "step-03",
+      "timestamp": "2024-07-07T10:02:00+01:00",
+      "status": "stale",
+      "signals": [
+        { "id": "speed", "name": "Speed", "valueType": "number", "value": 263, "unit": "km/h", "interpretation": "Vehicle speed in this simulated snapshot." },
+        { "id": "gear", "name": "Gear", "valueType": "integer", "value": 7, "unit": "gear", "interpretation": "Current selected gear in this simulated snapshot." },
+        { "id": "throttle", "name": "Throttle", "valueType": "number", "value": 75, "unit": "%", "interpretation": "Accelerator input in this simulated snapshot." },
+        { "id": "brake", "name": "Brake", "valueType": "number", "value": null, "unit": "%", "interpretation": "Brake input in this simulated snapshot." }
+      ]
+    },
+    {
+      "stepId": "step-04",
+      "timestamp": "2024-07-07T10:03:00+01:00",
+      "status": "unavailable",
+      "signals": [
+        { "id": "speed", "name": "Speed", "valueType": "number", "value": null, "unit": "km/h", "interpretation": "Vehicle speed in this simulated snapshot." },
+        { "id": "gear", "name": "Gear", "valueType": "integer", "value": null, "unit": "gear", "interpretation": "Current selected gear in this simulated snapshot." },
+        { "id": "throttle", "name": "Throttle", "valueType": "number", "value": null, "unit": "%", "interpretation": "Accelerator input in this simulated snapshot." },
+        { "id": "brake", "name": "Brake", "valueType": "number", "value": null, "unit": "%", "interpretation": "Brake input in this simulated snapshot." }
+      ]
+    }
+  ]
+}

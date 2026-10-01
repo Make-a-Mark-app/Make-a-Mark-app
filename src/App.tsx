@@ -246,7 +246,7 @@ function App() {
         {screen === "world" && <World car={car} moveCar={moveCar} found={discovery.foundToken} onFind={() => setDiscovery((d) => ({ ...d, foundToken: true, topics: d.topics.includes("Environment") ? d.topics : [...d.topics, "Environment"] }))} status={status} onNavigate={navigate} />}
         {screen === "mission" && <Mission discovery={discovery} onChoose={chooseRoute} onFinish={finishMission} onRetry={retryMission} onNavigate={navigate} status={status} />}
         {screen === "library" && <Library search={search} setSearch={setSearch} topic={topic} setTopic={setTopic} view={evidenceView} setView={setEvidenceView} records={visibleRecords} onOpen={openRecord} onNavigate={navigate} />}
-        {screen === "telemetry" && <Telemetry index={telemetryIndex} onAdvance={() => setTelemetryIndex((index) => Math.min(index + 1, telemetrySnapshots.length - 1))} />}
+        {screen === "telemetry" && <Telemetry index={telemetryIndex} onSelect={setTelemetryIndex} />}
         {screen === "engineer" && <Engineer question={question} setQuestion={setQuestion} reply={reply} asking={asking} onSubmit={askEngineer} currentChoice={discovery.routeChoice} detailLevel={detailLevel} setDetailLevel={setDetailLevel} includeMissionContext={includeMissionContext} setIncludeMissionContext={setIncludeMissionContext} includeTelemetryContext={includeTelemetryContext} setIncludeTelemetryContext={setIncludeTelemetryContext} telemetrySnapshot={telemetrySnapshots[telemetryIndex]} />}
         {screen === "summary" && <Summary discovery={discovery} onNavigate={navigate} onClear={clearDiscoveries} status={status} />}
         {screen === "about" && <TrustGuide onNavigate={navigate} />}
@@ -262,9 +262,13 @@ function App() {
   );
 }
 
-function Telemetry({ index, onAdvance }: { index: number; onAdvance: () => void }) {
+function Telemetry({ index, onSelect }: { index: number; onSelect: (index: number) => void }) {
   const snapshot = telemetrySnapshots[index];
   const statusLabel = snapshot.status[0].toUpperCase() + snapshot.status.slice(1);
+  const signalTypes: Record<typeof snapshot.signals[number]["valueType"], string> = {
+    number: "Number",
+    integer: "Integer",
+  };
   return (
     <section className="telemetry-page" aria-labelledby="telemetry-title">
       <div className="telemetry-heading">
@@ -278,7 +282,7 @@ function Telemetry({ index, onAdvance }: { index: number; onAdvance: () => void 
         </div>
       </div>
       <div className="telemetry-meta">
-        <span>SIMULATED TELEMETRY</span>
+        <span>SIMULATED TIME</span>
         <time dateTime={snapshot.timestamp}>{snapshot.timestamp}</time>
         <span>SNAPSHOT {index + 1} / {telemetrySnapshots.length}</span>
       </div>
@@ -286,15 +290,33 @@ function Telemetry({ index, onAdvance }: { index: number; onAdvance: () => void 
         {snapshot.signals.map((signal) => (
           <article className="telemetry-signal" key={signal.id}>
             <h2>{signal.name}</h2>
+            <p className="telemetry-signal-type">{signalTypes[signal.valueType]} · {signal.unit}</p>
             <p className={signal.value === null ? "telemetry-value telemetry-value-missing" : "telemetry-value"}>
               {signal.value === null ? <>Unavailable<span className="telemetry-unit"> · {signal.unit}</span></> : <>{signal.value} <span className="telemetry-unit">{signal.unit}</span></>}
             </p>
+            <p className="telemetry-signal-interpretation">{signal.interpretation}</p>
           </article>
         ))}
       </div>
       <div className="telemetry-controls">
-        <p>Advance manually through the prepared sequence. No timestamps or values are generated from your device clock.</p>
-        <button className="button button-primary" onClick={onAdvance} disabled={index === telemetrySnapshots.length - 1}>Next snapshot <ArrowRight size={17} /></button>
+        <p>Choose a fixed feed state. Values and timestamps are simulated and do not use your device clock.</p>
+        <div className="telemetry-state-controls" role="group" aria-label="Choose simulated feed state">
+          {telemetrySnapshots.map((candidate, candidateIndex) => {
+            const label = candidate.status[0].toUpperCase() + candidate.status.slice(1);
+            return (
+              <button
+                className="telemetry-state-button"
+                type="button"
+                key={candidate.stepId}
+                aria-label={`Show ${candidate.status} snapshot`}
+                aria-pressed={candidateIndex === index}
+                onClick={() => onSelect(candidateIndex)}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { isReportedImpact, parseEvidenceRecord, type EvidenceRecord, type ReviewState } from "../shared/contracts/evidence";
+import { MAX_EVIDENCE_SEARCH_RESULTS, searchEvidenceRecords } from "../shared/evidence-search";
 
 const solarRecord: EvidenceRecord = {
   id: "env-test-source-claim",
@@ -30,6 +31,24 @@ test("only reviewed report results qualify as Reported impact", () => {
 
   expect(isReportedImpact({ ...solarRecord, claimType: "target" })).toBe(false);
   expect(parseEvidenceRecord({ ...solarRecord, source: { ...solarRecord.source, url: "javascript:alert(1)" } })).toBeNull();
+});
+
+test("evidence search ranks keyword matches, applies filters, and caps results", async ({ request }) => {
+  const response = await request.get("/api/evidence");
+  const dataset = await response.json() as { records: EvidenceRecord[] };
+
+  const expandedRecords = Array.from({ length: 8 }, (_, index) => ({
+    ...dataset.records[0],
+    id: `solar-copy-${index}`,
+    title: `Solar generation example ${index}`,
+  }));
+  const matches = searchEvidenceRecords(expandedRecords, "solar generation", { limit: 99 });
+  expect(matches).toHaveLength(MAX_EVIDENCE_SEARCH_RESULTS);
+  expect(matches.map((record) => record.id)).toEqual(["solar-copy-0", "solar-copy-1", "solar-copy-2"]);
+
+  const oneKeyword = searchEvidenceRecords(dataset.records, "solar", { topic: "Environment", reportingPeriod: "2024" });
+  expect(oneKeyword.map((record) => record.id)).toEqual(["env-2024-solar-generation"]);
+  expect(searchEvidenceRecords(dataset.records, "unrelated claim", { topic: "Belong" })).toEqual([]);
 });
 
 test("the evidence API exposes validated source-reviewed claims with provenance", async ({ request }) => {
@@ -98,6 +117,19 @@ test("visitors can filter reviewed claims by reporting period", async ({ page })
   await periodFilter.selectOption("all");
   await expect(page.getByRole("heading", { name: "Renewable solar generation" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Students reached at Make A Mark Day" })).toBeVisible();
+});
+
+test("evidence search matches keywords and explains when records do not support a query", async ({ page }) => {
+  await page.goto("/library");
+  const search = page.getByRole("textbox", { name: "Search evidence library" });
+
+  await search.fill("solar generation 2024");
+  await expect(page.getByRole("heading", { name: "Renewable solar generation" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Nationalities represented" })).toHaveCount(0);
+
+  await search.fill("avoided carbon emissions in 2040");
+  await expect(page.getByRole("heading", { name: "Not enough evidence" })).toBeVisible();
+  await expect(page.getByText(/no source-reviewed record supports this search/i)).toBeVisible();
 });
 
 test("the About page reflects the reviewed library and Engineer boundary", async ({ page }) => {

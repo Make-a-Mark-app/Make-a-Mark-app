@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { evidenceRecords, illustrativeSamples, routeOptions, telemetrySnapshots, type EvidenceRecord, type IllustrativeSample, type RouteId } from "./data";
 import { EMPTY_DISCOVERY, hasDiscovery, parseDiscoveryRecap, type DiscoveryRecap } from "../shared/contracts/discovery";
+import { searchEvidenceRecords } from "../shared/evidence-search";
 import { createMissionOutcome } from "../shared/contracts/mission";
 import { missionScenario } from "../shared/mission";
 
@@ -153,16 +154,18 @@ function App() {
   }, [screen, car.x, car.y]);
 
   const visibleRecords = useMemo(() => {
-    const records: LibraryRecord[] = evidenceView === "reported" ? evidenceRecords : illustrativeSamples;
-    return records.filter((record) => {
-      const searchableText = isIllustrativeSample(record)
-        ? `${record.title} ${record.summary} ${record.topic} ${record.claimType} ${record.source}`
-        : `${record.title} ${record.claim} ${record.topic} ${record.claimType} ${record.source.title}`;
-      const matchesSearch = searchableText.toLowerCase().includes(search.toLowerCase());
-      return matchesSearch
+    if (evidenceView === "reported") {
+      return searchEvidenceRecords(evidenceRecords, search, {
+        ...(topic !== "All topics" && { topic: topic as EvidenceRecord["topic"] }),
+        ...(period !== "all" && { reportingPeriod: period === "No reporting period stated" ? null : period }),
+      });
+    }
+    return illustrativeSamples.filter((record) => {
+      const searchableText = `${record.title} ${record.summary} ${record.topic} ${record.claimType} ${record.source}`;
+      return searchableText.toLowerCase().includes(search.toLowerCase())
         && (topic === "All topics" || record.topic === topic)
         && (period === "all" || recordPeriod(record) === period);
-    });
+    }).slice(0, 3);
   }, [evidenceView, period, search, topic]);
 
   const periodOptions = useMemo(() => {
@@ -480,7 +483,7 @@ function Library({ search, setSearch, topic, setTopic, period, setPeriod, period
             return <article className="evidence-row" key={record.id}>
               <div className="record-index">0{index + 1}</div><div className="record-main"><div className="record-meta"><span>{record.topic}</span><b>·</b><span>{claimType}</span></div><h2>{record.title}</h2><p>{summary}</p><button className="text-link" aria-label={`Open record: ${record.title}`} onClick={() => onOpen(record)}>Open record <ArrowRight size={15} /></button></div><div className="record-source"><span className="review-label"><span /> {review}</span><span>{period}</span><span>{source}</span></div><ArrowUpRight className="record-arrow" size={17} />
             </article>;
-          }) : <div className="empty-results"><Search size={20} /><h2>No records match</h2><p>Try a different search or topic.</p></div>}</div>
+          }) : <div className="empty-results"><Search size={20} /><h2>{isReportedView && search.trim() ? "Not enough evidence" : "No records match"}</h2><p>{isReportedView && search.trim() ? "No source-reviewed record supports this search. Try a different search or topic." : "Try a different search or topic."}</p></div>}</div>
           <div className="library-method"><span>01 — CONTENT STANDARD</span><p>Reporting period and publication date stay distinct. Targets, commitments, outputs, and outcomes keep their own labels.</p><span className="method-mark">MM</span></div>
         </>
       )}

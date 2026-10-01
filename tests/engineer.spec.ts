@@ -60,6 +60,7 @@ test("the Engineer declines a factual question unsupported by reviewed records o
     expect(response.ok()).toBeTruthy();
     expect(await response.json()).toMatchObject({
       mode: "no_answer",
+      answer: "Not enough evidence is available in the source-reviewed records or selected context to support this answer.",
       citations: [],
       relatedRecordIds: [],
       limitations: ["This prototype does not answer from general model knowledge."],

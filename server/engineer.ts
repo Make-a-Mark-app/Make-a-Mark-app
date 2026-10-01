@@ -1,8 +1,8 @@
 import type { EvidenceRecord } from "../shared/contracts/evidence.js";
-import { isReportedImpact } from "../shared/contracts/evidence.js";
 import { createMissionOutcome, type MissionDefinition } from "../shared/contracts/mission.js";
 import type { TelemetryDataset, TelemetrySnapshot } from "../shared/contracts/telemetry.js";
 import { parseEngineerRequest, type EngineerRequest } from "../shared/contracts/engineer.js";
+import { normalizeEvidenceTokens, searchEvidenceRecords } from "../shared/evidence-search.js";
 
 type EngineerCitation = {
   recordId: string;
@@ -41,31 +41,15 @@ export type EngineerDependencies = {
   provider?: EngineerProvider;
 };
 
-const stopWords = new Set(["a", "an", "and", "are", "at", "about", "can", "carbon", "did", "does", "do", "figure", "footprint", "for", "has", "have", "how", "i", "in", "is", "it", "lifetime", "many", "me", "my", "of", "on", "or", "please", "report", "say", "team", "tell", "the", "this", "to", "total", "what", "was", "were", "when", "with"]);
 const safeExplanationTerms = new Set(["a", "about", "according", "an", "and", "are", "as", "at", "based", "by", "claim", "context", "data", "describes", "during", "evidence", "figure", "from", "has", "have", "in", "is", "it", "lists", "means", "measure", "measured", "of", "on", "only", "period", "record", "reported", "reports", "result", "route", "says", "selected", "shows", "simulated", "snapshot", "source", "states", "the", "their", "this", "to", "telemetry", "unavailable", "uses", "was", "were", "with", "year"]);
 const groundingInstructions = "Explain only the supplied reviewed records and explicitly selected fictional context. Do not add facts, values, units, source metadata, mission outcomes, or telemetry details. Return JSON with only answer (a short explanation) and recordIds (IDs from the supplied records that support it). Do not create citations or URLs.";
 
 function tokens(value: string): string[] {
-  return (value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").match(/[a-z0-9]+/g) ?? []).map((word) => {
-    if (word.length > 5 && word.endsWith("ies")) return word.slice(0, -3) + "y";
-    if (word.length > 6 && word.endsWith("ing")) return word.slice(0, -3);
-    if (word.length > 5 && word.endsWith("ed")) return word.slice(0, -2);
-    if (word.length > 4 && word.endsWith("s") && !word.endsWith("ss") && !word.endsWith("us") && !word.endsWith("is")) return word.slice(0, -1);
-    return word;
-  });
+  return normalizeEvidenceTokens(value);
 }
 
 function retrieveRecords(question: string, records: EvidenceRecord[]): EvidenceRecord[] {
-  const terms = [...new Set(tokens(question).filter((term) => !stopWords.has(term)))];
-  if (!terms.length) return [];
-  return records.filter(isReportedImpact).map((record) => {
-    const words = new Set(tokens(record.id + " " + record.title + " " + record.topic + " " + record.claim));
-    const score = terms.reduce((count, term) => count + (words.has(term) ? 1 : 0), 0);
-    const exact = tokens(record.id).join(" ") === tokens(question).join(" ") || tokens(record.title).join(" ") === tokens(question).join(" ");
-    const sufficientlyRelevant = exact || (score >= 2 && score / terms.length >= 0.6);
-    return { record, score: sufficientlyRelevant ? score : 0 };
-  }).filter(({ score }) => score > 0).sort((left, right) => right.score - left.score)
-    .slice(0, 3).map(({ record }) => record);
+  return searchEvidenceRecords(records, question);
 }
 
 function selectedContextSupportsQuestion(question: string, mission?: EngineerProviderInput["missionSummary"], telemetry?: TelemetrySnapshot): boolean {
@@ -160,7 +144,7 @@ function preparedResponse(records: EvidenceRecord[], mission?: EngineerProviderI
 
 function noAnswer(): EngineerResponse {
   return {
-    answer: "I can’t support an answer from the reviewed records or context supplied for this question.",
+    answer: "Not enough evidence is available in the source-reviewed records or selected context to support this answer.",
     whatSourceStates: "No matching reviewed record or selected context was available.",
     whatItMeans: "Try asking about a source-reviewed record, or choose mission or simulated snapshot context to include.",
     limitations: ["This prototype does not answer from general model knowledge."],

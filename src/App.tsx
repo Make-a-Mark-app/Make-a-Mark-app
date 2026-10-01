@@ -14,7 +14,8 @@ type EngineerReply = {
   whatSourceStates: string;
   whatItMeans: string;
   limitations: string[];
-  citations: Array<{ recordId: string; sourceDocument: string; sourcePage: number }>;
+  citations: Array<{ recordId: string; title: string; sourceTitle: string; sourceUrl: string; reportingPeriod: string | null; sourceLocation: string | null }>;
+  relatedRecordIds: string[];
   mode: "grounded_ai" | "prepared_fallback" | "no_answer";
 };
 type LibraryRecord = EvidenceRecord | IllustrativeSample;
@@ -89,6 +90,9 @@ function App() {
   const [question, setQuestion] = useState("");
   const [reply, setReply] = useState<EngineerReply | null>(null);
   const [asking, setAsking] = useState(false);
+  const [detailLevel, setDetailLevel] = useState<"concise" | "detailed">("concise");
+  const [includeMissionContext, setIncludeMissionContext] = useState(false);
+  const [includeTelemetryContext, setIncludeTelemetryContext] = useState(false);
   const [status, setStatus] = useState("");
   const [telemetryIndex, setTelemetryIndex] = useState(0);
 
@@ -191,16 +195,25 @@ function App() {
     try {
       const response = await fetch("/api/engineer", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: question.trim(), currentMission: "freight", currentChoice: discovery.routeChoice }),
+        body: JSON.stringify({
+          question: question.trim(),
+          detailLevel,
+          ...((includeMissionContext && discovery.routeChoice) || includeTelemetryContext ? {
+            context: {
+              ...(includeMissionContext && discovery.routeChoice && { mission: { missionId: missionScenario.missionId, configId: missionScenario.configId, choiceId: discovery.routeChoice } }),
+              ...(includeTelemetryContext && { telemetry: { stepId: telemetrySnapshots[telemetryIndex].stepId } }),
+            },
+          } : {}),
+        }),
       });
       if (!response.ok) throw new Error("Engineer unavailable");
       setReply(await response.json() as EngineerReply);
     } catch {
       setReply({
-        answer: "The prepared engineer response is available even while the service is offline. The library contains a small source-reviewed set, but this response does not retrieve or interpret those records.",
-        whatSourceStates: "The library is available to browse; this response has not retrieved a source record.",
-        whatItMeans: "Route descriptions are fictional game scenarios, not AMF1 operational data.",
-        limitations: ["Prepared offline response", "Evidence retrieval is not connected"], citations: [], mode: "prepared_fallback",
+        answer: "The Race Engineer API is unavailable, so I could not retrieve an approved record or selected-context explanation.",
+        whatSourceStates: "No source record was retrieved for this request.",
+        whatItMeans: "Try again when the local API is available. Unsupported questions are not answered from general model knowledge.",
+        limitations: ["API unavailable; no evidence or context was retrieved."], citations: [], relatedRecordIds: [], mode: "prepared_fallback",
       });
     } finally { setAsking(false); }
   }
@@ -233,7 +246,7 @@ function App() {
         {screen === "mission" && <Mission discovery={discovery} onChoose={chooseRoute} onFinish={finishMission} onRetry={retryMission} onNavigate={navigate} status={status} />}
         {screen === "library" && <Library search={search} setSearch={setSearch} topic={topic} setTopic={setTopic} view={evidenceView} setView={setEvidenceView} records={visibleRecords} onOpen={openRecord} />}
         {screen === "telemetry" && <Telemetry index={telemetryIndex} onAdvance={() => setTelemetryIndex((index) => Math.min(index + 1, telemetrySnapshots.length - 1))} />}
-        {screen === "engineer" && <Engineer question={question} setQuestion={setQuestion} reply={reply} asking={asking} onSubmit={askEngineer} currentChoice={discovery.routeChoice} />}
+        {screen === "engineer" && <Engineer question={question} setQuestion={setQuestion} reply={reply} asking={asking} onSubmit={askEngineer} currentChoice={discovery.routeChoice} detailLevel={detailLevel} setDetailLevel={setDetailLevel} includeMissionContext={includeMissionContext} setIncludeMissionContext={setIncludeMissionContext} includeTelemetryContext={includeTelemetryContext} setIncludeTelemetryContext={setIncludeTelemetryContext} telemetrySnapshot={telemetrySnapshots[telemetryIndex]} />}
         {screen === "summary" && <Summary discovery={discovery} onNavigate={navigate} onClear={clearDiscoveries} status={status} />}
         {screen === "about" && <About onNavigate={navigate} />}
       </main>
@@ -423,18 +436,46 @@ function Library({ search, setSearch, topic, setTopic, view, setView, records, o
   );
 }
 
-function Engineer({ question, setQuestion, reply, asking, onSubmit, currentChoice }: { question: string; setQuestion: (value: string) => void; reply: EngineerReply | null; asking: boolean; onSubmit: (event: FormEvent<HTMLFormElement>) => void; currentChoice: RouteId | null }) {
-  const sampleQuestions = ["What happens in the freight mission?", "Can I see the report evidence?", "Is my route result a real emissions figure?"];
+function Engineer({ question, setQuestion, reply, asking, onSubmit, currentChoice, detailLevel, setDetailLevel, includeMissionContext, setIncludeMissionContext, includeTelemetryContext, setIncludeTelemetryContext, telemetrySnapshot }: {
+  question: string;
+  setQuestion: (value: string) => void;
+  reply: EngineerReply | null;
+  asking: boolean;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  currentChoice: RouteId | null;
+  detailLevel: "concise" | "detailed";
+  setDetailLevel: (value: "concise" | "detailed") => void;
+  includeMissionContext: boolean;
+  setIncludeMissionContext: (value: boolean) => void;
+  includeTelemetryContext: boolean;
+  setIncludeTelemetryContext: (value: boolean) => void;
+  telemetrySnapshot: typeof telemetrySnapshots[number];
+}) {
+  const sampleQuestions = ["What does the solar generation figure measure?", "How many nationalities were represented?", "Is the solar figure a team-wide renewable percentage?"];
+  const modeLabel = reply?.mode === "grounded_ai" ? "GROUNDED EXPLANATION · CITATIONS VALIDATED"
+    : reply?.mode === "no_answer" ? "NO ANSWER · LIMITED TO APPROVED CONTEXT"
+      : "PREPARED RESPONSE · BOUNDED CONTEXT";
   return (
     <div className="content-page engineer-page">
-      <div className="engineer-header"><span className="engineer-emblem"><Sparkles size={20} /></span><div><p className="overline"><span /> OPTIONAL EXPLANATION</p><h1>Ask the Race Engineer.</h1><p>The evidence library is available to browse. This prepared response does not retrieve evidence records yet.</p></div></div>
+      <div className="engineer-header"><span className="engineer-emblem"><Sparkles size={20} /></span><div><p className="overline"><span /> OPTIONAL EXPLANATION</p><h1>Ask the Race Engineer.</h1><p>Ask about source-reviewed records or context you choose to include. Unsupported factual questions receive a clear limitation.</p></div></div>
       <div className="engineer-grid"><section className="engineer-chat">
-        <div className="chat-topline"><span><i /> READY</span><span>PREPARED MODE</span></div>
-        <div className="engineer-message"><span className="message-avatar"><Sparkles size={17} /></span><div><span className="message-label">RACE ENGINEER</span><p>Ask me about the route choices or how this prototype handles evidence. I’ll be clear about what I can and can’t support.</p></div></div>
+        <div className="chat-topline"><span><i /> READY</span><span>ASK ON SUBMIT · NO HISTORY</span></div>
+        <div className="engineer-message"><span className="message-avatar"><Sparkles size={17} /></span><div><span className="message-label">RACE ENGINEER</span><p>I can explain reviewed records and selected fictional context. Citations link back to their approved source records.</p></div></div>
         {!reply && <div className="question-suggestions"><span>TRY A QUESTION</span>{sampleQuestions.map((sample) => <button key={sample} onClick={() => setQuestion(sample)}>{sample}<ArrowUpRight size={14} /></button>)}</div>}
-        {reply && <div className="engineer-answer" aria-live="polite"><div className="answer-mode"><span /> PREPARED RESPONSE · NOT LIVE AI</div><p className="answer-text">{reply.answer}</p><div className="answer-detail"><span>WHAT THE SOURCE SAYS</span><p>{reply.whatSourceStates}</p></div><div className="answer-detail"><span>WHAT IT MEANS</span><p>{reply.whatItMeans}</p></div>{reply.limitations.map((limitation) => <div className="limitation-note" key={limitation}><Info size={14} />{limitation}</div>)}</div>}
-        <form className="question-form" onSubmit={onSubmit}><label htmlFor="engineer-question">YOUR QUESTION</label><div><input id="engineer-question" value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={500} placeholder="Ask about your route or the evidence…" /><button type="submit" disabled={asking || !question.trim()} aria-label="Send question">{asking ? <span className="spinner" /> : <ArrowRight size={18} />}</button></div><small>Up to 500 characters. Questions are not saved by the server.</small></form>
-      </section><aside className="engineer-side"><div className="current-context"><span>MISSION CONTEXT</span><h2>Freight choices</h2><p>{currentChoice ? `Your selected route: ${routeOptions.find((r) => r.id === currentChoice)?.name}.` : "Choose a route to give the Engineer more context."}</p><div className="context-rule" /><span className="context-mark">01 <b>/</b> 01</span></div><div className="grounding-card"><ShieldCheck size={18} /><h3>Evidence first.</h3><p>Browse the reviewed library directly. This prepared response does not retrieve or cite a record yet.</p><span>NO UNSOURCED FACTS</span></div></aside></div>
+        {reply && <div className="engineer-answer" aria-live="polite"><div className="answer-mode"><span /> {modeLabel}</div><p className="answer-text">{reply.answer}</p><div className="answer-detail"><span>{reply.mode === "no_answer" ? "GROUNDING CHECK" : reply.citations.length ? "WHAT THE SOURCE SAYS" : "WHAT THE SELECTED CONTEXT SAYS"}</span><p>{reply.whatSourceStates}</p></div><div className="answer-detail"><span>WHAT IT MEANS</span><p>{reply.whatItMeans}</p></div>{reply.citations.length > 0 && <div className="answer-detail"><span>CITED RECORDS</span><ul className="engineer-citations">{reply.citations.map((citation) => <li key={citation.recordId}><a href={citation.sourceUrl} target="_blank" rel="noreferrer">{citation.title} · {citation.sourceTitle}</a><small>{citation.reportingPeriod ?? "Reporting period not stated"}{citation.sourceLocation ? " · " + citation.sourceLocation : ""}</small></li>)}</ul></div>}{reply.limitations.map((limitation) => <div className="limitation-note" key={limitation}><Info size={14} />{limitation}</div>)}</div>}
+        <form className="question-form" onSubmit={onSubmit}>
+          <label htmlFor="engineer-question">YOUR QUESTION</label>
+          <div><input id="engineer-question" value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={500} placeholder="Ask about a report record or selected context…" /><button type="submit" disabled={asking || !question.trim()} aria-label="Send question">{asking ? <span className="spinner" /> : <ArrowRight size={18} />}</button></div>
+          <small>Up to 500 characters. Questions are not saved on the server.</small>
+          <label className="detail-level-label" htmlFor="engineer-detail">ANSWER DETAIL</label>
+          <select id="engineer-detail" value={detailLevel} onChange={(event) => setDetailLevel(event.target.value as "concise" | "detailed")}><option value="concise">Concise</option><option value="detailed">Detailed</option></select>
+          <fieldset className="engineer-context-options">
+            <legend>OPTIONAL CONTEXT · SENT ONLY WHEN SELECTED</legend>
+            <label><input type="checkbox" checked={includeMissionContext} disabled={!currentChoice} onChange={(event) => setIncludeMissionContext(event.target.checked)} /> Include fictional Mission scenario {currentChoice ? "· " + routeOptions.find((route) => route.id === currentChoice)?.name : "· choose a route first"}</label>
+            <label><input type="checkbox" checked={includeTelemetryContext} onChange={(event) => setIncludeTelemetryContext(event.target.checked)} /> Include simulated snapshot · {telemetrySnapshot.stepId} ({telemetrySnapshot.status})</label>
+          </fieldset>
+        </form>
+      </section><aside className="engineer-side"><div className="current-context"><span>MISSION CONTEXT</span><h2>Freight choices</h2><p>{currentChoice ? "Selected route: " + routeOptions.find((r) => r.id === currentChoice)?.name + ". It is sent only if you select its context above." : "Choose a route to make fictional Mission context available."}</p><div className="context-rule" /><span className="context-mark">01 <b>/</b> 01</span></div><div className="grounding-card"><ShieldCheck size={18} /><h3>Evidence first.</h3><p>Only reviewed records can be cited as reported impact. Mission and simulated snapshot details stay separate.</p><span>NO UNSOURCED FACTS</span></div></aside></div>
     </div>
   );
 }
@@ -463,7 +504,7 @@ function Summary({ discovery, onNavigate, onClear, status }: { discovery: Discov
 }
 
 function About({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
-  return <div className="content-page about-page"><p className="overline"><span /> HOW THIS PROTOTYPE WORKS</p><h1>Play is the invitation.<br /><em>Evidence is the point.</em></h1><p className="about-lede">Impact Drive keeps three things separate: a fictional game, source-backed evidence, and explanations that point back to that evidence.</p><div className="about-pillars"><article><span>01 / PLAY</span><h2>Mission scenario</h2><p>Freight route choices and outcomes are deterministic game scenarios. They are not operational AMF1 data.</p></article><article><span>02 / EVIDENCE</span><h2>Reviewed records</h2><p>The library contains a limited set of source-reviewed claims with source locations, reporting periods, review notes, and limitations. Illustrative samples stay separate; sources do not imply endorsement.</p></article><article><span>03 / EXPLANATION</span><h2>Prepared response</h2><p>The Race Engineer uses a prepared fallback. It does not retrieve evidence records yet, and live AI is not connected.</p></article></div><div className="about-boundary"><ShieldCheck size={20} /><div><strong>Prototype boundary</strong><p>No sign-in, personal-data collection, real-time telemetry, or claimed real-world impact. Your session summary stays in this browser.</p></div></div><button className="button button-primary" onClick={() => onNavigate("world")}>Enter the world <ArrowRight size={16} /></button></div>;
+  return <div className="content-page about-page"><p className="overline"><span /> HOW THIS PROTOTYPE WORKS</p><h1>Play is the invitation.<br /><em>Evidence is the point.</em></h1><p className="about-lede">Impact Drive keeps three things separate: a fictional game, source-backed evidence, and explanations that point back to that evidence.</p><div className="about-pillars"><article><span>01 / PLAY</span><h2>Mission scenario</h2><p>Freight route choices and outcomes are deterministic game scenarios. They are not operational AMF1 data.</p></article><article><span>02 / EVIDENCE</span><h2>Reviewed records</h2><p>The library contains a limited set of source-reviewed claims with source locations, reporting periods, review notes, and limitations. Illustrative samples stay separate; sources do not imply endorsement.</p></article><article><span>03 / EXPLANATION</span><h2>Race Engineer</h2><p>The Engineer retrieves only reviewed records and context you choose to include. A server-side provider is optional; prepared fallback and no-answer responses remain available.</p></article></div><div className="about-boundary"><ShieldCheck size={20} /><div><strong>Prototype boundary</strong><p>No sign-in, personal-data collection, real-time telemetry, or claimed real-world impact. Your session summary stays in this browser.</p></div></div><button className="button button-primary" onClick={() => onNavigate("world")}>Enter the world <ArrowRight size={16} /></button></div>;
 }
 
 function EvidenceDialog({ record, onClose }: { record: LibraryRecord; onClose: () => void }) {

@@ -4,7 +4,7 @@ An inclusive hackathon R1 prototype plan for one fictional freight mission, a ma
 
 ## Current prototype status
 
-The current local app is React/Vite with an Express API. The fictional freight mission and its deterministic outcome use shared runtime-validated contracts in the browser and API. A small Discovery recap stays in this browser and can be cleared from the summary page. The evidence library includes three source-reviewed claims from the official Make A Mark ESG Report 2024, with scope notes and limitations; illustrative samples remain separate. The R1 telemetry fixture, hosted model integration, Docker Compose, and Grafana observability services remain planned work. Documentation describes planned behavior; it is not a claim that those features are implemented.
+The current local app is React/Vite with an Express API. The fictional freight mission and its deterministic outcome use shared runtime-validated contracts in the browser and API. A small Discovery recap stays in this browser and can be cleared from the summary page. The evidence library includes three source-reviewed claims from the official Make A Mark ESG Report 2024, with scope notes and limitations; illustrative samples remain separate. Simulated telemetry advances through a fixed, versioned fixture. The Race Engineer retrieves a bounded set of reviewed records, resolves citations from those records, and can optionally call a server-configured provider. Docker Compose and Grafana observability services remain planned work.
 
 ## R1 boundaries
 
@@ -13,7 +13,7 @@ The current local app is React/Vite with an Express API. The fictional freight m
 - Mission outcomes are fictional and do not calculate environmental or social impact.
 - Reported claims require source, reporting period, and limitations.
 - Illustrative impact placeholders must carry “Illustrative demo data — not live AMF1 data or a measured impact result.”
-- The Race Engineer calls an optional hosted provider only when a user asks a question. Provider credentials remain server-side; prepared fallback and no-answer responses remain available.
+- The Race Engineer calls an optional hosted provider only after a user submits a supported question. Provider credentials remain server-side; prepared fallback and no-answer responses remain available. Questions and selected context are not persisted or logged.
 - No account or player profile is required. The mission and evidence library remain usable when the API/provider is unavailable.
 
 ## Run the current app
@@ -35,7 +35,7 @@ npm start
 ## Configuration checklist
 
 - **Local development (required):** Install Node.js and npm, then run `npm install`. `npm run dev` starts the Vite app and local Express API. `npm run build` type-checks and builds the app. No `.env` file, GCP project, model credential, or provider selection is needed for the mission and evidence-preview paths.
-- **Hosted model (optional, later step):** Provider credentials belong on the server only. The app and prepared Race Engineer response remain available when a provider is not configured. Provider-specific settings are documented when that integration is implemented.
+- **Race Engineer provider (optional):** Set an HTTPS `ENGINEER_PROVIDER_URL` and, when needed, `ENGINEER_PROVIDER_API_KEY` in the server environment. The server sends a JSON request with the question, detail preference, at most three retrieved reviewed records, and only selected Mission/telemetry context. The provider should return `{"answer":"…","recordIds":["…"]}`. The server discards IDs outside the retrieved records and resolves source links and metadata itself. With no provider configured or when it fails, the app uses a prepared response. Never put provider credentials in client-side variables.
 - **GCP demo hosting (optional):** Cloud project and deployment settings are only needed for the optional hosted profile. Keep them separate from local development settings; no cloud resource is required to run this prototype locally.
 
 Run the agreed full-app acceptance suite with `npm run test:e2e`. It starts the local frontend and API and uses deterministic mission content.

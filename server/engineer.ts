@@ -24,6 +24,7 @@ export type EngineerResponse = {
 };
 
 export type EngineerProviderInput = {
+  instructions: string;
   question: string;
   detailLevel: "concise" | "detailed";
   records: EvidenceRecord[];
@@ -40,10 +41,18 @@ export type EngineerDependencies = {
   provider?: EngineerProvider;
 };
 
-const stopWords = new Set(["a", "an", "and", "are", "about", "can", "carbon", "does", "do", "figure", "footprint", "for", "how", "i", "in", "is", "it", "lifetime", "me", "my", "of", "on", "or", "please", "report", "say", "team", "the", "this", "to", "total", "what", "with"]);
+const stopWords = new Set(["a", "an", "and", "are", "at", "about", "can", "carbon", "did", "does", "do", "figure", "footprint", "for", "has", "have", "how", "i", "in", "is", "it", "lifetime", "many", "me", "my", "of", "on", "or", "please", "report", "say", "team", "tell", "the", "this", "to", "total", "what", "was", "were", "when", "with"]);
+const safeExplanationTerms = new Set(["a", "about", "according", "an", "and", "are", "as", "at", "based", "by", "claim", "context", "data", "describes", "during", "evidence", "figure", "from", "has", "have", "in", "is", "it", "lists", "means", "measure", "measured", "of", "on", "only", "period", "record", "reported", "reports", "result", "route", "says", "selected", "shows", "simulated", "snapshot", "source", "states", "the", "their", "this", "to", "telemetry", "unavailable", "uses", "was", "were", "with", "year"]);
+const groundingInstructions = "Explain only the supplied reviewed records and explicitly selected fictional context. Do not add facts, values, units, source metadata, mission outcomes, or telemetry details. Return JSON with only answer (a short explanation) and recordIds (IDs from the supplied records that support it). Do not create citations or URLs.";
 
 function tokens(value: string): string[] {
-  return value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").match(/[a-z0-9]+/g) ?? [];
+  return (value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").match(/[a-z0-9]+/g) ?? []).map((word) => {
+    if (word.length > 5 && word.endsWith("ies")) return word.slice(0, -3) + "y";
+    if (word.length > 6 && word.endsWith("ing")) return word.slice(0, -3);
+    if (word.length > 5 && word.endsWith("ed")) return word.slice(0, -2);
+    if (word.length > 4 && word.endsWith("s") && !word.endsWith("ss") && !word.endsWith("us") && !word.endsWith("is")) return word.slice(0, -1);
+    return word;
+  });
 }
 
 function retrieveRecords(question: string, records: EvidenceRecord[]): EvidenceRecord[] {
@@ -53,7 +62,8 @@ function retrieveRecords(question: string, records: EvidenceRecord[]): EvidenceR
     const words = new Set(tokens(record.id + " " + record.title + " " + record.topic + " " + record.claim));
     const score = terms.reduce((count, term) => count + (words.has(term) ? 1 : 0), 0);
     const exact = tokens(record.id).join(" ") === tokens(question).join(" ") || tokens(record.title).join(" ") === tokens(question).join(" ");
-    return { record, score: exact ? terms.length + 1 : score };
+    const sufficientlyRelevant = exact || (score >= 2 && score / terms.length >= 0.6);
+    return { record, score: sufficientlyRelevant ? score : 0 };
   }).filter(({ score }) => score > 0).sort((left, right) => right.score - left.score)
     .slice(0, 3).map(({ record }) => record);
 }
@@ -102,7 +112,7 @@ function describeGrounding(records: EvidenceRecord[], mission?: EngineerProvider
   const sourceText = records.map(({ claim }) => claim).join(" ");
   const contextText = [
     mission && "Fictional mission: " + mission.selectedRoute + " route. " + mission.feedback,
-    telemetry && "Simulated snapshot " + telemetry.stepId + " (" + telemetry.status + ") at " + telemetry.timestamp + ". Prepared signals: " + telemetry.signals.map((signal) => signal.name + ": " + (signal.value === null ? "Unavailable" : signal.value + " " + signal.unit)).join("; ") + ".",
+    telemetry && "Simulated snapshot " + telemetry.stepId + " (" + telemetry.status + ") at " + telemetry.timestamp + ". Prepared signals: " + describeTelemetrySignals(telemetry) + ".",
   ].filter(Boolean).join(" ");
   const limitations = [...new Set(records.flatMap(({ limitations: notes }) => notes))];
   if (mission) limitations.push("Mission route and outcome are fictional game content, not AMF1 operations.");
@@ -110,12 +120,29 @@ function describeGrounding(records: EvidenceRecord[], mission?: EngineerProvider
   return { sourceText: sourceText || "No report record was retrieved for this question.", contextText, limitations };
 }
 
-function preparedResponse(records: EvidenceRecord[], mission?: EngineerProviderInput["missionSummary"], telemetry?: TelemetrySnapshot, providerUnavailable = false, detailLevel: "concise" | "detailed" = "concise"): EngineerResponse {
+function describeTelemetrySignals(telemetry: TelemetrySnapshot): string {
+  return telemetry.signals.map((signal) => signal.name + ": " + (signal.value === null ? "Unavailable" : signal.value + " " + signal.unit)).join("; ");
+}
+
+function isProviderAnswerGrounded(answer: string, records: EvidenceRecord[], mission?: EngineerProviderInput["missionSummary"], telemetry?: TelemetrySnapshot): boolean {
+  const sourceText = records.flatMap((record) => [
+    record.id, record.title, record.topic, record.claim, record.reviewNote, String(record.value ?? ""), record.valueDisplay ?? "", record.unit ?? "",
+    record.reportingPeriod ?? "", record.source.title, record.source.edition, record.source.location ?? "", ...record.limitations,
+  ]).join(" ");
+  const contextText = [
+    mission && [mission.title, mission.selectedRoute, mission.feedback].join(" "),
+    telemetry && [telemetry.stepId, telemetry.timestamp, telemetry.status, ...telemetry.signals.flatMap((signal) => [signal.id, signal.name, signal.value === null ? "Unavailable" : String(signal.value), signal.unit])].join(" "),
+  ].filter(Boolean).join(" ");
+  const allowedTerms = new Set([...tokens(sourceText), ...tokens(contextText), ...tokens([...safeExplanationTerms].join(" "))]);
+  return tokens(answer).every((term) => allowedTerms.has(term));
+}
+
+function preparedResponse(records: EvidenceRecord[], mission?: EngineerProviderInput["missionSummary"], telemetry?: TelemetrySnapshot, providerIssue?: "unavailable" | "invalid", detailLevel: "concise" | "detailed" = "concise"): EngineerResponse {
   const grounding = describeGrounding(records, mission, telemetry);
   const explanation = [
     records.map(({ claim }) => claim).join(" "),
     mission && mission.selectedRoute + ": " + mission.feedback,
-    telemetry && "Snapshot " + telemetry.stepId + " is " + telemetry.status + ". " + telemetry.signals.map((signal) => signal.name + ": " + (signal.value === null ? "Unavailable" : signal.value + " " + signal.unit)).join("; ") + ".",
+    telemetry && "Snapshot " + telemetry.stepId + " is " + telemetry.status + ". " + describeTelemetrySignals(telemetry) + ".",
   ].filter(Boolean).join(" ");
   const detail = detailLevel === "detailed" ? records.map((record) => {
     return " Source: " + record.source.title + " (" + (record.reportingPeriod ?? "reporting period not stated") + ")" + (record.source.location ? ", " + record.source.location : "") + ". " + record.limitations.join(" ");
@@ -124,7 +151,7 @@ function preparedResponse(records: EvidenceRecord[], mission?: EngineerProviderI
     answer: explanation + detail,
     whatSourceStates: [grounding.sourceText, grounding.contextText].filter(Boolean).join(" "),
     whatItMeans: records.flatMap(({ limitations }) => limitations).join(" ") || grounding.contextText || "This answer uses only the selected fictional context.",
-    limitations: [...grounding.limitations, ...(providerUnavailable ? ["The optional explanation provider is unavailable; this prepared response uses only the selected context and reviewed records."] : [])],
+    limitations: [...grounding.limitations, ...(providerIssue === "unavailable" ? ["The optional explanation provider is unavailable; this prepared response uses only the selected context and reviewed records."] : []), ...(providerIssue === "invalid" ? ["The provider response could not be grounded in the selected records and context, so it was not used."] : [])],
     citations: citationsFor(records),
     relatedRecordIds: records.map(({ id }) => id),
     mode: "prepared_fallback",
@@ -158,8 +185,10 @@ export async function createEngineerResponse(input: unknown, dependencies: Engin
   if (!records.length && !selectedContextSupportsQuestion(request.question, context.missionSummary, context.telemetrySnapshot)) return noAnswer();
 
   if (dependencies.provider) {
+    let providerIssue: "unavailable" | "invalid" = "invalid";
     try {
       const providerInput: EngineerProviderInput = {
+        instructions: groundingInstructions,
         question: request.question,
         detailLevel: request.detailLevel,
         records,
@@ -169,6 +198,9 @@ export async function createEngineerResponse(input: unknown, dependencies: Engin
       const result = parseProviderOutput(await dependencies.provider(providerInput), new Set(records.map(({ id }) => id)));
       if (result && (records.length === 0 || result.recordIds.length > 0)) {
         const citedRecords = records.filter(({ id }) => result.recordIds.includes(id));
+        if (!isProviderAnswerGrounded(result.answer, citedRecords, context.missionSummary, context.telemetrySnapshot)) {
+          return preparedResponse(records, context.missionSummary, context.telemetrySnapshot, "invalid", request.detailLevel);
+        }
         const grounding = describeGrounding(citedRecords, context.missionSummary, context.telemetrySnapshot);
         return {
           answer: result.answer, whatSourceStates: [grounding.sourceText, grounding.contextText].filter(Boolean).join(" "),
@@ -176,10 +208,12 @@ export async function createEngineerResponse(input: unknown, dependencies: Engin
           relatedRecordIds: citedRecords.map(({ id }) => id), mode: "grounded_ai",
         };
       }
-    } catch { /* Use the bounded prepared response when the optional provider fails. */ }
-    return preparedResponse(records, context.missionSummary, context.telemetrySnapshot, true, request.detailLevel);
+    } catch {
+      providerIssue = "unavailable";
+    }
+    return preparedResponse(records, context.missionSummary, context.telemetrySnapshot, providerIssue, request.detailLevel);
   }
-  return preparedResponse(records, context.missionSummary, context.telemetrySnapshot, false, request.detailLevel);
+  return preparedResponse(records, context.missionSummary, context.telemetrySnapshot, undefined, request.detailLevel);
 }
 
 export function createHttpEngineerProvider(endpoint: string, apiKey?: string): EngineerProvider {

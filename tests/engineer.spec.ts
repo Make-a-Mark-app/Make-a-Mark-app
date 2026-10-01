@@ -41,17 +41,30 @@ test("detail preference expands a prepared source explanation and unavailable te
   expect(telemetry.limitations).toContain("Telemetry values are simulated fixture data, not a live AMF1 feed.");
 });
 
+test("keyword retrieval supports the reviewed Belong and Community claims", async ({ request }) => {
+  const questions = [
+    ["How many nationalities were represented?", "bel-2023-nationalities"],
+    ["How many students did the report reach?", "com-2024-make-a-mark-day"],
+  ];
+  for (const [question, recordId] of questions) {
+    const response = await request.post("/api/engineer", { data: { question } });
+    const result = await response.json();
+    expect(result.mode).toBe("prepared_fallback");
+    expect(result.relatedRecordIds).toEqual([recordId]);
+  }
+});
+
 test("the Engineer declines a factual question unsupported by reviewed records or selected context", async ({ request }) => {
-  const response = await request.post("/api/engineer", {
-    data: { question: "What is the team’s total lifetime carbon footprint?" },
-  });
-  expect(response.ok()).toBeTruthy();
-  expect(await response.json()).toMatchObject({
-    mode: "no_answer",
-    citations: [],
-    relatedRecordIds: [],
-    limitations: ["This prototype does not answer from general model knowledge."],
-  });
+  for (const question of ["What is the team’s total lifetime carbon footprint?", "Does solar generation improve race performance?"]) {
+    const response = await request.post("/api/engineer", { data: { question } });
+    expect(response.ok()).toBeTruthy();
+    expect(await response.json()).toMatchObject({
+      mode: "no_answer",
+      citations: [],
+      relatedRecordIds: [],
+      limitations: ["This prototype does not answer from general model knowledge."],
+    });
+  }
 });
 
 test("selected Mission and telemetry context resolves to canonical server values", async () => {
@@ -59,7 +72,9 @@ test("selected Mission and telemetry context resolves to canonical server values
   const app = createApp({
     provider: async (input) => {
       providerInputs.push(input as unknown as Record<string, unknown>);
-      return { answer: "This explanation uses the selected demo context.", recordIds: [] };
+      return input.missionSummary
+        ? { answer: "Air: The route prioritizes a tight delivery window.", recordIds: [] }
+        : { answer: "The simulated snapshot is unavailable; battery temperature, tyre pressure, and energy recovery are unavailable.", recordIds: [] };
     },
   });
   const server = createServer(app);
@@ -171,6 +186,30 @@ test("provider failure returns a prepared answer from the retrieved record", asy
     expect(result.mode).toBe("prepared_fallback");
     expect(result.relatedRecordIds).toEqual(["env-2024-solar-generation"]);
     expect(result.limitations).toContain("The optional explanation provider is unavailable; this prepared response uses only the selected context and reviewed records.");
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
+test("the API rejects provider claims outside the retrieved record and uses the prepared answer", async () => {
+  const app = createApp({
+    provider: async () => ({ answer: "Solar generation improved race performance by 25%.", recordIds: ["env-2024-solar-generation"] }),
+  });
+  const server = createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("The test API did not bind a TCP port.");
+
+  try {
+    const response = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: "What does solar generation measure?" }),
+    });
+    const result = await response.json();
+    expect(result.mode).toBe("prepared_fallback");
+    expect(result.answer).toContain("779,682.30 kWh");
+    expect(result.answer).not.toContain("25%");
+    expect(result.limitations).toContain("The provider response could not be grounded in the selected records and context, so it was not used.");
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }

@@ -35,22 +35,22 @@ test("detail preference expands a prepared source explanation and unavailable te
   expect(concise.answer).not.toContain("Printed p. 26");
   expect(detailed.answer).toContain("Printed p. 26 (PDF p. 25)");
   expect(telemetry.mode).toBe("prepared_fallback");
-  expect(telemetry.answer).toContain("Battery temperature: Unavailable");
-  expect(telemetry.answer).toContain("Tyre pressure: Unavailable");
-  expect(telemetry.answer).not.toMatch(/Battery temperature: \d/);
+  expect(telemetry.answer).toContain("Speed: Unavailable");
+  expect(telemetry.answer).toContain("Gear: Unavailable");
+  expect(telemetry.answer).not.toMatch(/Speed: \d/);
   expect(telemetry.limitations).toContain("Telemetry values are simulated fixture data, not a live AMF1 feed.");
 });
 
 test("keyword retrieval supports the reviewed Belong and Community claims", async ({ request }) => {
   const questions = [
     ["How many nationalities were represented?", "bel-2023-nationalities"],
-    ["How many students did the report reach?", "com-2024-make-a-mark-day"],
+    ["How many students were engaged?", "com-2025-make-a-mark-week-students"],
   ];
   for (const [question, recordId] of questions) {
     const response = await request.post("/api/engineer", { data: { question } });
     const result = await response.json();
     expect(result.mode).toBe("prepared_fallback");
-    expect(result.relatedRecordIds).toEqual([recordId]);
+    expect(result.relatedRecordIds).toContain(recordId);
   }
 });
 
@@ -59,6 +59,7 @@ test("the Engineer declines a factual question unsupported by reviewed records o
     const response = await request.post("/api/engineer", { data: { question } });
     expect(response.ok()).toBeTruthy();
     expect(await response.json()).toMatchObject({
+      answer: "Not enough evidence in the reviewed records or selected context to support an answer.",
       mode: "no_answer",
       citations: [],
       relatedRecordIds: [],
@@ -74,7 +75,7 @@ test("selected Mission and telemetry context resolves to canonical server values
       providerInputs.push(input as unknown as Record<string, unknown>);
       return input.missionSummary
         ? { answer: "Air: The route prioritizes a tight delivery window.", recordIds: [] }
-        : { answer: "The simulated snapshot is unavailable; battery temperature, tyre pressure, and energy recovery are unavailable.", recordIds: [] };
+        : { answer: "The simulated snapshot is unavailable; speed, gear, throttle, and brake are unavailable.", recordIds: [] };
     },
   });
   const server = createServer(app);
@@ -109,7 +110,7 @@ test("selected Mission and telemetry context resolves to canonical server values
     expect(providerInputs[0]).not.toHaveProperty("telemetrySnapshot");
     expect(providerInputs[1].telemetrySnapshot).toMatchObject({
       stepId: "step-04", status: "unavailable", signals: expect.arrayContaining([
-        { id: "battery-temp", name: "Battery temperature", value: null, unit: "°C" },
+        { id: "speed", name: "Speed", value: null, unit: "km/h", valueType: "number", interpretation: "Shows the simulated car speed." },
       ]),
     });
     expect(providerInputs[1]).not.toHaveProperty("missionSummary");

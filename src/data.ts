@@ -1,5 +1,5 @@
-import evidenceData from "../shared/data/evidence.r1.v1.json";
-import telemetryData from "../shared/data/telemetry.r1.v1.json";
+import evidenceData from "../shared/data/evidence.r1.v2.json";
+import telemetryData from "../shared/data/telemetry.r1.v2.json";
 import { isReportedImpact, parseEvidenceDataset, type EvidenceRecord } from "../shared/contracts/evidence";
 import { parseTelemetryDataset } from "../shared/contracts/telemetry";
 import { missionScenario } from "../shared/mission";

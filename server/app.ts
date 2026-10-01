@@ -1,6 +1,6 @@
 import express, { type Express } from "express";
 import { readFileSync } from "node:fs";
-import { isReportedImpact, parseEvidenceDataset } from "../shared/contracts/evidence.js";
+import { evidenceTopicTags, lookupEvidence, parseEvidenceDataset, type EvidenceTopicTag } from "../shared/contracts/evidence.js";
 import { createMissionOutcome, parseMissionDefinition } from "../shared/contracts/mission.js";
 import { parseTelemetryDataset } from "../shared/contracts/telemetry.js";
 import { missionScenario } from "../shared/mission.js";
@@ -8,10 +8,10 @@ import { createHttpEngineerProvider, createEngineerResponse, type EngineerProvid
 import { localMetrics } from "./observability/metrics.js";
 
 const evidenceDataset = parseEvidenceDataset(JSON.parse(
-  readFileSync(new URL("../shared/data/evidence.r1.v1.json", import.meta.url), "utf8"),
+  readFileSync(new URL("../shared/data/evidence.r1.v2.json", import.meta.url), "utf8"),
 ));
 const telemetryDataset = parseTelemetryDataset(JSON.parse(
-  readFileSync(new URL("../shared/data/telemetry.r1.v1.json", import.meta.url), "utf8"),
+  readFileSync(new URL("../shared/data/telemetry.r1.v2.json", import.meta.url), "utf8"),
 ));
 
 export function createApp(options: { provider?: EngineerProvider } = {}): Express {
@@ -72,12 +72,35 @@ export function createApp(options: { provider?: EngineerProvider } = {}): Expres
     response.json(outcome);
   });
 
-  app.get("/api/evidence", (_request, response) => {
+  app.get("/api/evidence", (request, response) => {
     if (!evidenceDataset) {
       response.status(500).json({ error: "Evidence records are unavailable." });
       return;
     }
-    response.json({ version: evidenceDataset.version, records: evidenceDataset.records.filter(isReportedImpact) });
+    const { q: rawQuery, pillar, topic: topicTag, period } = request.query;
+    const query = typeof rawQuery === "string" ? rawQuery.trim() : "";
+    if (
+      (rawQuery !== undefined && typeof rawQuery !== "string") || (pillar !== undefined && typeof pillar !== "string") ||
+      (topicTag !== undefined && typeof topicTag !== "string") || (period !== undefined && typeof period !== "string") ||
+      query.length > 200 || (pillar && !["Environment", "Belong", "Community"].includes(pillar)) ||
+      (topicTag && !evidenceTopicTags.includes(topicTag as EvidenceTopicTag)) || (period && period.length > 80)
+    ) {
+      response.status(400).json({ error: "Evidence lookup filters are invalid." });
+      return;
+    }
+    const records = lookupEvidence(evidenceDataset.records, {
+      query,
+      ...(pillar && { pillar: pillar as "Environment" | "Belong" | "Community" }),
+      ...(topicTag && { topicTag: topicTag as EvidenceTopicTag }),
+      ...(period && { period }),
+      limit: 10,
+    });
+    response.json({
+      version: evidenceDataset.version,
+      status: records.length ? "matched" : "not_enough_evidence",
+      message: records.length ? undefined : "Not enough evidence in the reviewed records to support this query.",
+      records,
+    });
   });
 
   app.get("/api/telemetry", (_request, response) => {

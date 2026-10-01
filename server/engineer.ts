@@ -1,5 +1,5 @@
 import type { EvidenceRecord } from "../shared/contracts/evidence.js";
-import { isReportedImpact } from "../shared/contracts/evidence.js";
+import { lookupEvidence } from "../shared/contracts/evidence.js";
 import { createMissionOutcome, type MissionDefinition } from "../shared/contracts/mission.js";
 import type { TelemetryDataset, TelemetrySnapshot } from "../shared/contracts/telemetry.js";
 import { parseEngineerRequest, type EngineerRequest } from "../shared/contracts/engineer.js";
@@ -41,7 +41,7 @@ export type EngineerDependencies = {
   provider?: EngineerProvider;
 };
 
-const stopWords = new Set(["a", "an", "and", "are", "at", "about", "can", "carbon", "describe", "did", "does", "do", "explain", "figure", "footprint", "for", "happen", "happens", "has", "have", "how", "i", "include", "includes", "in", "is", "it", "lifetime", "many", "me", "mean", "means", "my", "of", "on", "or", "please", "report", "say", "show", "shows", "summarize", "team", "tell", "the", "this", "to", "total", "was", "were", "what", "when", "with", "work"]);
+const stopWords = new Set(["a", "an", "and", "are", "at", "about", "can", "carbon", "describe", "did", "does", "do", "explain", "figure", "footprint", "for", "happen", "happens", "has", "have", "how", "i", "include", "includes", "in", "is", "it", "lifetime", "many", "me", "mean", "means", "my", "of", "on", "or", "please", "report", "say", "show", "shows", "summarize", "team", "tell", "the", "this", "to", "total", "was", "were", "what", "when", "with", "work", "s"]);
 const safeExplanationTerms = new Set(["a", "about", "according", "an", "and", "are", "as", "at", "based", "by", "claim", "context", "data", "describes", "during", "evidence", "figure", "from", "has", "have", "in", "is", "it", "lists", "means", "measure", "measured", "of", "on", "only", "period", "record", "reported", "reports", "result", "route", "says", "selected", "shows", "simulated", "snapshot", "source", "states", "the", "their", "this", "to", "telemetry", "unavailable", "uses", "was", "were", "with", "year"]);
 const groundingInstructions = "Explain only the supplied reviewed records and explicitly selected fictional context. Do not add facts, values, units, source metadata, mission outcomes, or telemetry details. Return JSON with only answer (a short explanation) and recordIds (IDs from the supplied records that support it). Do not create citations or URLs.";
 
@@ -55,21 +55,32 @@ function tokens(value: string): string[] {
   });
 }
 
+function literalTokens(value: string): string[] {
+  return value.toLocaleLowerCase("en").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").match(/[a-z0-9]+/g) ?? [];
+}
+
 function hasSufficientKeywordCoverage(termCount: number, matchCount: number): boolean {
   return termCount === 1 ? matchCount === 1 : matchCount >= 2 && matchCount / termCount >= 0.6;
 }
 
 function retrieveRecords(question: string, records: EvidenceRecord[]): EvidenceRecord[] {
-  const terms = [...new Set(tokens(question).filter((term) => !stopWords.has(term)))];
+  const terms = [...new Set(literalTokens(question).filter((term) => !stopWords.has(term)))];
   if (!terms.length) return [];
-  return records.filter(isReportedImpact).map((record) => {
-    const words = new Set(tokens(record.id + " " + record.title + " " + record.topic + " " + record.claim));
-    const score = terms.reduce((count, term) => count + (words.has(term) ? 1 : 0), 0);
-    const exact = tokens(record.id).join(" ") === tokens(question).join(" ") || tokens(record.title).join(" ") === tokens(question).join(" ");
-    const sufficientlyRelevant = exact || hasSufficientKeywordCoverage(terms.length, score);
-    return { record, score: sufficientlyRelevant ? score : 0 };
-  }).filter(({ score }) => score > 0).sort((left, right) => right.score - left.score)
-    .slice(0, 3).map(({ record }) => record);
+  const exactMatches = lookupEvidence(records, { query: terms.join(" "), limit: 10 });
+  const exactIds = new Set(exactMatches.map(({ id }) => id));
+  const scores = new Map<string, { record: EvidenceRecord; score: number }>();
+  for (const term of terms) {
+    for (const record of lookupEvidence(records, { query: term, limit: 10 })) {
+      const current = scores.get(record.id) ?? { record, score: 0 };
+      current.score += 1;
+      scores.set(record.id, current);
+    }
+  }
+  return [...scores.values()]
+    .filter(({ score }) => hasSufficientKeywordCoverage(terms.length, score))
+    .sort((left, right) => Number(exactIds.has(right.record.id)) - Number(exactIds.has(left.record.id)) || right.score - left.score || left.record.id.localeCompare(right.record.id, "en"))
+    .slice(0, 3)
+    .map(({ record }) => record);
 }
 
 function selectedContextSupportsQuestion(question: string, mission?: EngineerProviderInput["missionSummary"], telemetry?: TelemetrySnapshot): boolean {
@@ -168,7 +179,7 @@ function preparedResponse(records: EvidenceRecord[], mission?: EngineerProviderI
 
 function noAnswer(): EngineerResponse {
   return {
-    answer: "I can’t support an answer from the reviewed records or context supplied for this question.",
+    answer: "Not enough evidence in the reviewed records or selected context to support an answer.",
     whatSourceStates: "No matching reviewed record or selected context was available.",
     whatItMeans: "Try asking about a source-reviewed record, or choose mission or simulated snapshot context to include.",
     limitations: ["This prototype does not answer from general model knowledge."],

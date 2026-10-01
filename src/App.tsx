@@ -6,6 +6,7 @@ import {
 import { evidenceRecords, illustrativeSamples, routeOptions, telemetrySnapshots, type EvidenceRecord, type IllustrativeSample, type RouteId } from "./data";
 import { EMPTY_DISCOVERY, hasDiscovery, parseDiscoveryRecap, type DiscoveryRecap } from "../shared/contracts/discovery";
 import { createMissionOutcome } from "../shared/contracts/mission";
+import { evidenceTopicTags, lookupEvidence } from "../shared/contracts/evidence";
 import { missionScenario } from "../shared/mission";
 
 type Screen = "home" | "world" | "mission" | "library" | "telemetry" | "engineer" | "summary" | "about";
@@ -81,7 +82,9 @@ function App() {
   const [car, setCar] = useState({ x: 50, y: 30 });
   const [motionOn, setMotionOn] = useState(!window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [search, setSearch] = useState("");
-  const [topic, setTopic] = useState("All topics");
+  const [topic, setTopic] = useState("All pillars");
+  const [topicTag, setTopicTag] = useState("All topics");
+  const [period, setPeriod] = useState("All periods");
   const [evidenceView, setEvidenceView] = useState<EvidenceView>("reported");
   const [selectedRecord, setSelectedRecord] = useState<LibraryRecord | null>(() => {
     const id = window.location.pathname.startsWith("/library/") ? window.location.pathname.split("/")[2] : "";
@@ -147,15 +150,25 @@ function App() {
   }, [screen, car.x, car.y]);
 
   const visibleRecords = useMemo(() => {
-    const records: LibraryRecord[] = evidenceView === "reported" ? evidenceRecords : illustrativeSamples;
+    if (evidenceView === "reported") return lookupEvidence(evidenceRecords, {
+      query: search,
+      ...(topic !== "All pillars" && { pillar: topic as "Environment" | "Belong" | "Community" }),
+      ...(topicTag !== "All topics" && { topicTag: topicTag as typeof evidenceTopicTags[number] }),
+      ...(period !== "All periods" && { period }),
+      limit: 10,
+    });
+    const records: LibraryRecord[] = illustrativeSamples;
+    const normalize = (value: string) => value.toLocaleLowerCase("en").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+    const query = normalize(search);
     return records.filter((record) => {
       const searchableText = isIllustrativeSample(record)
         ? `${record.title} ${record.summary} ${record.topic} ${record.claimType} ${record.source}`
         : `${record.title} ${record.claim} ${record.topic} ${record.claimType} ${record.source.title}`;
-      const matchesSearch = searchableText.toLowerCase().includes(search.toLowerCase());
-      return matchesSearch && (topic === "All topics" || record.topic === topic);
-    });
-  }, [evidenceView, search, topic]);
+      const words = normalize(searchableText).split(" ");
+      const matchesSearch = !query || query.split(" ").every((word) => words.includes(word));
+      return matchesSearch && (topic === "All pillars" || record.topic === topic);
+    }).sort((a, b) => a.id.localeCompare(b.id, "en")).slice(0, 10);
+  }, [evidenceView, search, topic, topicTag, period]);
 
   function openRecord(record: LibraryRecord) {
     window.history.pushState({}, "", `/library/${record.id}`);
@@ -244,8 +257,8 @@ function App() {
         {screen === "home" && <Home discovery={discovery} onChoose={chooseRoute} onNavigate={navigate} />}
         {screen === "world" && <World car={car} moveCar={moveCar} found={discovery.foundToken} onFind={() => setDiscovery((d) => ({ ...d, foundToken: true, topics: d.topics.includes("Environment") ? d.topics : [...d.topics, "Environment"] }))} status={status} onNavigate={navigate} />}
         {screen === "mission" && <Mission discovery={discovery} onChoose={chooseRoute} onFinish={finishMission} onRetry={retryMission} onNavigate={navigate} status={status} />}
-        {screen === "library" && <Library search={search} setSearch={setSearch} topic={topic} setTopic={setTopic} view={evidenceView} setView={setEvidenceView} records={visibleRecords} onOpen={openRecord} />}
-        {screen === "telemetry" && <Telemetry index={telemetryIndex} onAdvance={() => setTelemetryIndex((index) => Math.min(index + 1, telemetrySnapshots.length - 1))} />}
+        {screen === "library" && <Library search={search} setSearch={setSearch} topic={topic} setTopic={setTopic} topicTag={topicTag} setTopicTag={setTopicTag} period={period} setPeriod={setPeriod} view={evidenceView} setView={setEvidenceView} records={visibleRecords} onOpen={openRecord} />}
+        {screen === "telemetry" && <Telemetry index={telemetryIndex} onSelect={setTelemetryIndex} onAdvance={() => setTelemetryIndex((index) => Math.min(index + 1, telemetrySnapshots.length - 1))} />}
         {screen === "engineer" && <Engineer question={question} setQuestion={setQuestion} reply={reply} asking={asking} onSubmit={askEngineer} currentChoice={discovery.routeChoice} detailLevel={detailLevel} setDetailLevel={setDetailLevel} includeMissionContext={includeMissionContext} setIncludeMissionContext={setIncludeMissionContext} includeTelemetryContext={includeTelemetryContext} setIncludeTelemetryContext={setIncludeTelemetryContext} telemetrySnapshot={telemetrySnapshots[telemetryIndex]} />}
         {screen === "summary" && <Summary discovery={discovery} onNavigate={navigate} onClear={clearDiscoveries} status={status} />}
         {screen === "about" && <About onNavigate={navigate} />}
@@ -261,7 +274,7 @@ function App() {
   );
 }
 
-function Telemetry({ index, onAdvance }: { index: number; onAdvance: () => void }) {
+function Telemetry({ index, onSelect, onAdvance }: { index: number; onSelect: (index: number) => void; onAdvance: () => void }) {
   const snapshot = telemetrySnapshots[index];
   const statusLabel = snapshot.status[0].toUpperCase() + snapshot.status.slice(1);
   return (
@@ -288,11 +301,16 @@ function Telemetry({ index, onAdvance }: { index: number; onAdvance: () => void 
             <p className={signal.value === null ? "telemetry-value telemetry-value-missing" : "telemetry-value"}>
               {signal.value === null ? <>Unavailable<span className="telemetry-unit"> · {signal.unit}</span></> : <>{signal.value} <span className="telemetry-unit">{signal.unit}</span></>}
             </p>
+            <p className="telemetry-signal-meta">{signal.valueType === "integer" ? "Integer" : "Number"} · {signal.unit}</p>
+            <p className="telemetry-interpretation">{signal.interpretation}</p>
           </article>
         ))}
       </div>
       <div className="telemetry-controls">
-        <p>Advance manually through the prepared sequence. No timestamps or values are generated from your device clock.</p>
+        <div className="telemetry-state-controls" role="group" aria-label="Select simulated feed state">
+          {telemetrySnapshots.map((item, itemIndex) => <button key={item.stepId} type="button" aria-pressed={itemIndex === index} onClick={() => onSelect(itemIndex)}>{item.status[0].toUpperCase() + item.status.slice(1)}</button>)}
+        </div>
+        <p>Choose any prepared state directly. No timestamps or values are generated from your device clock.</p>
         <button className="button button-primary" onClick={onAdvance} disabled={index === telemetrySnapshots.length - 1}>Next snapshot <ArrowRight size={17} /></button>
       </div>
     </section>
@@ -329,7 +347,7 @@ function Home({ discovery, onChoose, onNavigate }: { discovery: DiscoveryRecap; 
           {route && <p className="route-outcome" aria-live="polite">{route.feedback}</p>}
           <button className="button button-panel" onClick={() => onNavigate(choice ? "mission" : "mission")}>{choice ? "Continue mission" : "Set your route"}<ArrowRight size={16} /></button>
         </div>
-        <div className="home-bottom"><div className="evidence-teaser"><span className="document-icon"><BookOpen size={20} /></span><div><h3>From the reports</h3><p>Browse three source-reviewed claims with their limits.</p><button onClick={() => onNavigate("library")}>Explore evidence library <ArrowRight size={15} /></button></div></div><div className="control-teaser"><div className="key-cluster"><span>W</span><div><span>A</span><span>S</span><span>D</span></div></div><div><small>MOVE THROUGH THE WORLD</small><p>Use WASD or arrow keys.<br />Or choose a route directly.</p></div></div><div className="local-note"><span className="local-note-mark">✳</span><p>Your discoveries stay<br />on this device.</p></div></div>
+        <div className="home-bottom"><div className="evidence-teaser"><span className="document-icon"><BookOpen size={20} /></span><div><h3>From the reports</h3><p>Browse a small source-reviewed set with its limits.</p><button onClick={() => onNavigate("library")}>Explore evidence library <ArrowRight size={15} /></button></div></div><div className="control-teaser"><div className="key-cluster"><span>W</span><div><span>A</span><span>S</span><span>D</span></div></div><div><small>MOVE THROUGH THE WORLD</small><p>Use WASD or arrow keys.<br />Or choose a route directly.</p></div></div><div className="local-note"><span className="local-note-mark">✳</span><p>Your discoveries stay<br />on this device.</p></div></div>
       </section>
       <section className="home-next"><div><span className="section-count">01</span><p>START WITH A CHOICE</p><h2>One route.<br />A lot to discover.</h2></div><div className="next-copy"><p>This is a short, fictional freight scenario. Your route shapes the game, then a clear line separates the game from source-backed evidence.</p><button className="text-link" onClick={() => onNavigate("about")}>See how the evidence works <ArrowUpRight size={16} /></button></div><div className="next-aside"><span className="aside-rule" /><span>PLAY, THEN LOOK CLOSER</span></div></section>
     </div>
@@ -398,11 +416,15 @@ function Mission({ discovery, onChoose, onFinish, onRetry, onNavigate, status }:
   );
 }
 
-function Library({ search, setSearch, topic, setTopic, view, setView, records, onOpen }: {
+function Library({ search, setSearch, topic, setTopic, topicTag, setTopicTag, period, setPeriod, view, setView, records, onOpen }: {
   search: string;
   setSearch: (value: string) => void;
   topic: string;
   setTopic: (value: string) => void;
+  topicTag: string;
+  setTopicTag: (value: string) => void;
+  period: string;
+  setPeriod: (value: string) => void;
   view: EvidenceView;
   setView: (value: EvidenceView) => void;
   records: LibraryRecord[];
@@ -417,8 +439,8 @@ function Library({ search, setSearch, topic, setTopic, view, setView, records, o
         <button aria-pressed={isReportedView} onClick={() => setView("reported")}>Reported impact</button>
         <button aria-pressed={!isReportedView} onClick={() => setView("illustrative")}>Illustrative samples</button>
       </div>
-      {!isReportedView && <p className="sample-explainer">Illustrative samples are examples, not reported claims.</p>}
-      <div className="library-toolbar"><label className="search-field"><Search size={17} /><span className="sr-only">Search evidence library</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search topics, terms, or claim types" /></label><label className="filter-select"><span className="sr-only">Filter by topic</span><select value={topic} onChange={(e) => setTopic(e.target.value)}><option>All topics</option><option>Environment</option><option>Belong</option><option>Community</option><option>Governance</option></select><ChevronDown size={15} /></label></div>
+      {!isReportedView && <p className="sample-explainer">Illustrative demo data — not live AMF1 data or a measured impact result.</p>}
+      <div className="library-toolbar"><label className="search-field"><Search size={17} /><span className="sr-only">Search evidence library</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Literal search across reviewed claims" /></label><label className="filter-select"><span className="sr-only">Filter by pillar</span><select value={topic} onChange={(e) => setTopic(e.target.value)}><option>All pillars</option><option>Environment</option><option>Belong</option><option>Community</option></select><ChevronDown size={15} /></label>{isReportedView && <><label className="filter-select"><span className="sr-only">Filter by controlled topic</span><select value={topicTag} onChange={(e) => setTopicTag(e.target.value)}><option>All topics</option>{evidenceTopicTags.map((tag) => <option key={tag} value={tag}>{tag.replaceAll("-", " ")}</option>)}</select><ChevronDown size={15} /></label><label className="filter-select"><span className="sr-only">Filter by reporting period</span><select value={period} onChange={(e) => setPeriod(e.target.value)}><option>All periods</option><option value="2025">2025</option><option value="2024">2024</option></select><ChevronDown size={15} /></label></>}</div>
       <div className="library-count"><span>{records.length} {isReportedView ? "REPORTED CLAIM" : "ILLUSTRATIVE SAMPLE"}{records.length === 1 ? "" : "S"}</span><span>{isReportedView ? "REVIEWED CLAIMS ONLY" : "NOT REPORTED IMPACT"}</span></div>
       <div className="evidence-list">{records.length ? records.map((record, index) => {
         const illustrative = isIllustrativeSample(record);
@@ -428,9 +450,9 @@ function Library({ search, setSearch, topic, setTopic, view, setView, records, o
         const source = illustrative ? record.source : `${record.source.title} · ${record.source.edition}`;
         const review = illustrative ? record.review : "Source-reviewed for this prototype";
         return <article className="evidence-row" key={record.id}>
-          <div className="record-index">0{index + 1}</div><div className="record-main"><div className="record-meta"><span>{record.topic}</span><b>·</b><span>{claimType}</span></div><h2>{record.title}</h2><p>{summary}</p><button className="text-link" aria-label={`Open record: ${record.title}`} onClick={() => onOpen(record)}>Open record <ArrowRight size={15} /></button></div><div className="record-source"><span className="review-label"><span /> {review}</span><span>{period}</span><span>{source}</span></div><ArrowUpRight className="record-arrow" size={17} />
+          <div className="record-index">0{index + 1}</div><div className="record-main"><div className="record-meta"><span>{record.topic}</span><b>·</b><span>{claimType}</span>{!illustrative && <><b>·</b><span>{record.topicTag.replaceAll("-", " ")}</span></>}</div><h2>{record.title}</h2><p>{summary}</p><button className="text-link" aria-label={`Open record: ${record.title}`} onClick={() => onOpen(record)}>Open record <ArrowRight size={15} /></button></div><div className="record-source"><span className="review-label"><span /> {review}</span><span>{period}</span><span>{source}</span>{!illustrative && <><span>{record.source.location ?? "Source location not stated"}</span><a href={record.source.url} target="_blank" rel="noreferrer">Open source report</a><small>Limitations: {record.limitations.join(" ")}</small></>}</div><ArrowUpRight className="record-arrow" size={17} />
         </article>;
-      }) : <div className="empty-results"><Search size={20} /><h2>No records match</h2><p>Try a different search or topic.</p></div>}</div>
+      }) : <div className="empty-results"><Search size={20} /><h2>{search.trim() ? "Not enough evidence" : "No records match"}</h2><p>{search.trim() ? "No reviewed record supports this literal search." : "Try a different pillar, topic, or period."}</p></div>}</div>
       <div className="library-method"><span>01 — CONTENT STANDARD</span><p>Reporting period and publication date stay distinct. Targets, commitments, outputs, and outcomes keep their own labels.</p><span className="method-mark">MM</span></div>
     </div>
   );
@@ -526,11 +548,11 @@ function EvidenceDialog({ record, onClose }: { record: LibraryRecord; onClose: (
     };
   }, [onClose]);
   if (isIllustrativeSample(record)) {
-    return <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}><section className="evidence-dialog" role="dialog" aria-modal="true" aria-labelledby="record-title"><button ref={closeButton} className="dialog-close icon-button" aria-label="Close record" onClick={onClose}><X size={19} /></button><p className="overline"><span /> ILLUSTRATIVE SAMPLE / {record.topic.toUpperCase()}</p><h2 id="record-title">{record.title}</h2><span className="review-label large"><span /> {record.review.toUpperCase()}</span><p className="dialog-summary">{record.summary}</p><div className="record-fields"><div><span>CLAIM TYPE</span><strong>{record.claimType}</strong></div><div><span>REPORTING PERIOD</span><strong>{record.period}</strong></div><div><span>SOURCE</span><strong>{record.source}</strong></div><div><span>LOCATION</span><strong>{record.page}</strong></div></div><div className="dialog-limits"><Info size={16} /><div><strong>Limitations</strong>{record.limitations.map((limitation) => <p key={limitation}>{limitation}</p>)}</div></div><p className="dialog-footnote">Illustrative sample only. It is not source-backed evidence.</p></section></div>;
+  return <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}><section className="evidence-dialog" role="dialog" aria-modal="true" aria-labelledby="record-title"><button ref={closeButton} className="dialog-close icon-button" aria-label="Close record" onClick={onClose}><X size={19} /></button><p className="overline"><span /> ILLUSTRATIVE SAMPLE / {record.topic.toUpperCase()}</p><h2 id="record-title">{record.title}</h2><span className="review-label large"><span /> {record.review.toUpperCase()}</span><p className="dialog-summary">{record.summary}</p><div className="record-fields"><div><span>CLAIM TYPE</span><strong>{record.claimType}</strong></div><div><span>REPORTING PERIOD</span><strong>{record.period}</strong></div><div><span>SOURCE</span><strong>{record.source}</strong></div><div><span>LOCATION</span><strong>{record.page}</strong></div></div><div className="dialog-limits"><Info size={16} /><div><strong>Limitations</strong>{record.limitations.map((limitation) => <p key={limitation}>{limitation}</p>)}</div></div><p className="dialog-footnote">Illustrative demo data — not live AMF1 data or a measured impact result.</p></section></div>;
   }
 
   const value = record.value === undefined ? "Not stated" : `${record.valueDisplay ?? record.value}${record.unit ? ` ${record.unit}` : ""}`;
-  return <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}><section className="evidence-dialog" role="dialog" aria-modal="true" aria-labelledby="record-title"><button ref={closeButton} className="dialog-close icon-button" aria-label="Close record" onClick={onClose}><X size={19} /></button><p className="overline"><span /> SOURCE-REVIEWED CLAIM / {record.topic.toUpperCase()}</p><h2 id="record-title">{record.title}</h2><span className="review-label large"><span /> Source-reviewed for this prototype</span><p className="dialog-summary">{record.claim}</p><div className="record-fields"><div><span>CLAIM TYPE</span><strong>{record.claimType.replace("_", " ")}</strong></div><div><span>REPORTED VALUE</span><strong>{value}</strong></div><div><span>REPORTING PERIOD</span><strong>{record.reportingPeriod ?? "No reporting period stated"}</strong></div><div><span>SOURCE TITLE / EDITION</span><strong>{record.source.title} · {record.source.edition}</strong></div><div><span>PUBLICATION DATE</span><strong>{record.source.publicationDate ?? "Not stated in source"}</strong></div><div><span>SOURCE LOCATION</span><strong>{record.source.location ?? "Not stated in source"}</strong></div></div><div className="dialog-limits"><Info size={16} /><div><strong>Review note</strong><p>{record.reviewNote}</p><strong>Limitations</strong>{record.limitations.map((limitation) => <p key={limitation}>{limitation}</p>)}</div></div><p className="dialog-footnote"><a href={record.source.url} target="_blank" rel="noreferrer">Open source report</a> · This source does not imply AMF1 endorsement of this app.</p></section></div>;
+  return <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}><section className="evidence-dialog" role="dialog" aria-modal="true" aria-labelledby="record-title"><button ref={closeButton} className="dialog-close icon-button" aria-label="Close record" onClick={onClose}><X size={19} /></button><p className="overline"><span /> SOURCE-REVIEWED CLAIM / {record.topic.toUpperCase()}</p><h2 id="record-title">{record.title}</h2><span className="review-label large"><span /> Source-reviewed for this prototype</span><p className="dialog-summary">{record.claim}</p><div className="record-fields"><div><span>CONTROLLED TOPIC</span><strong>{record.topicTag.replaceAll("-", " ")}</strong></div><div><span>CLAIM TYPE</span><strong>{record.claimType.replace("_", " ")}</strong></div><div><span>REPORTED VALUE</span><strong>{value}</strong></div><div><span>REPORTING PERIOD</span><strong>{record.reportingPeriod ?? "Not stated in source"}</strong></div><div><span>SOURCE TITLE / EDITION</span><strong>{record.source.title} · {record.source.edition}</strong></div><div><span>PUBLICATION DATE</span><strong>{record.source.publicationDate ?? "Not stated in source"}</strong></div><div><span>SOURCE LOCATION</span><strong>{record.source.location ?? "Not stated in source"}</strong></div><div><span>REVIEWED BY / DATE</span><strong>{record.reviewer} · {record.reviewDate}</strong></div><div><span>REVIEW STATE</span><strong>{record.reviewState.replace("_", " ")}</strong></div></div><div className="dialog-limits"><Info size={16} /><div><strong>Review note</strong><p>{record.reviewNote}</p><strong>Limitations</strong>{record.limitations.map((limitation) => <p key={limitation}>{limitation}</p>)}</div></div><p className="dialog-footnote"><a href={record.source.url} target="_blank" rel="noreferrer">Open source report</a> · This source does not imply AMF1 endorsement of this app.</p></section></div>;
 }
 
 function PlaneIcon() { return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="m4 18 10-2 5-10c.5-1 2.3-.7 2.2.5L20 15l7-1.6c1.5-.3 2.2 1.5.8 2.2L20 20l-2 7c-.3 1.1-2 1.1-2.3 0L14 21l-7 1.2c-1.4.2-2-1.6-.7-2.2L12 17l-7-1c-1.4-.2-1.4-2.2 0-2l8 1.2" fill="currentColor" /></svg>; }

@@ -132,17 +132,22 @@ h1, h2, h3, p { margin-top: 0; }
 .telemetry-state-unavailable { color: #f08b79; }
 .telemetry-meta { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 16px 0; color: var(--dim); font: 8px var(--mono); letter-spacing: .11em; }
 .telemetry-meta time { color: #dce5d9; letter-spacing: .04em; }
-.telemetry-signals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); }
+.telemetry-signals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); }
 .telemetry-signal { min-height: 185px; padding: 24px; background: linear-gradient(145deg, rgba(16,53,42,.72), rgba(8,31,24,.74)); }
 .telemetry-signal + .telemetry-signal { border-left: 1px solid var(--line); }
 .telemetry-signal h2 { color: var(--muted); font: 9px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
-.telemetry-value { margin: 54px 0 0; font: 500 clamp(26px, 3.4vw, 42px)/1 var(--serif); }
+.telemetry-value { margin: 38px 0 0; font: 500 clamp(26px, 3.4vw, 42px)/1 var(--serif); }
 .telemetry-unit { color: var(--yellow); font: 12px var(--mono); }
 .telemetry-value-missing { color: #f08b79; font-size: 23px; }
 .telemetry-value-missing .telemetry-unit { color: var(--muted); font-size: 10px; }
 .telemetry-controls { display: flex; justify-content: space-between; align-items: center; gap: 22px; padding-top: 20px; }
 .telemetry-controls p { max-width: 590px; margin: 0; color: var(--dim); font-size: 11px; line-height: 1.6; }
 .telemetry-controls button:disabled { opacity: .55; cursor: not-allowed; }
+.telemetry-signal-meta { margin: 9px 0 0; color: var(--dim); font: 8px var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.telemetry-interpretation { max-width: 220px; margin: 10px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.telemetry-state-controls { display: flex; flex-wrap: wrap; gap: 6px; }
+.telemetry-state-controls button { padding: 8px 10px; border: 1px solid var(--line-strong); background: transparent; color: var(--muted); font: 8px var(--mono); letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
+.telemetry-state-controls button[aria-pressed="true"] { border-color: var(--yellow); color: var(--yellow); }
 .page-heading { display: flex; justify-content: space-between; align-items: end; gap: 30px; margin-bottom: 29px; }
 .page-heading .overline, .library-intro .overline, .mission-main .overline, .engineer-header .overline, .summary-page > .overline, .about-page > .overline { margin-bottom: 17px; }
 .page-heading h1, .library-intro h1, .mission-main h1, .engineer-header h1, .summary-page h1, .about-page h1 { font-size: clamp(39px, 4.4vw, 60px); margin: 0 0 10px; line-height: 1.02; }
@@ -264,6 +269,8 @@ h1, h2, h3, p { margin-top: 0; }
 .record-main h2 { font: 500 21px var(--serif); margin: 9px 0 7px; }
 .record-main p { max-width: 550px; color: var(--muted); font-size: 10px; line-height: 1.6; margin: 0 0 10px; }
 .record-source { display: flex; flex-direction: column; gap: 8px; padding-top: 2px; color: var(--muted); font-size: 9px; }
+.record-source a { color: var(--yellow); text-underline-offset: 3px; }
+.record-source small { color: var(--dim); font-size: 9px; line-height: 1.5; }
 .review-label { display: inline-flex; align-items: center; gap: 6px; color: #bec9be; font: 8px var(--mono); text-transform: uppercase; letter-spacing: .03em; }
 .review-label > span { width: 6px; height: 6px; background: #c9a75b; border-radius: 50%; }
 .record-arrow { color: var(--dim); }

@@ -4,8 +4,10 @@ export type TelemetryStatus = typeof TELEMETRY_STATUSES[number];
 export type TelemetrySignal = {
   id: string;
   name: string;
+  valueType: "number" | "integer";
   value: number | null;
   unit: string;
+  interpretation: string;
 };
 
 export type TelemetrySnapshot = {
@@ -16,7 +18,7 @@ export type TelemetrySnapshot = {
 };
 
 export type TelemetryDataset = {
-  version: "telemetry-r1-v1";
+  version: "telemetry-r1-v2";
   snapshots: TelemetrySnapshot[];
 };
 
@@ -52,7 +54,7 @@ function isExplicitTimestamp(value: unknown): value is string {
 }
 
 export function parseTelemetryDataset(value: unknown): TelemetryDataset | null {
-  if (!isObject(value) || !hasOnlyKeys(value, ["version", "snapshots"]) || value.version !== "telemetry-r1-v1") return null;
+  if (!isObject(value) || !hasOnlyKeys(value, ["version", "snapshots"]) || value.version !== "telemetry-r1-v2") return null;
   if (!Array.isArray(value.snapshots) || value.snapshots.length === 0) return null;
 
   const snapshots: TelemetrySnapshot[] = [];
@@ -67,18 +69,21 @@ export function parseTelemetryDataset(value: unknown): TelemetryDataset | null {
     const parsedSignals: TelemetrySignal[] = [];
     const signalIds = new Set<string>();
     for (const signal of signals) {
-      if (!isObject(signal) || !hasOnlyKeys(signal, ["id", "name", "value", "unit"])) return null;
+      if (!isObject(signal) || !hasOnlyKeys(signal, ["id", "name", "valueType", "value", "unit", "interpretation"])) return null;
       if (typeof signal.id !== "string" || !signal.id.trim() || signalIds.has(signal.id)) return null;
       if (typeof signal.name !== "string" || !signal.name.trim() || typeof signal.unit !== "string" || !signal.unit.trim()) return null;
+      if (signal.valueType !== "number" && signal.valueType !== "integer") return null;
+      if (typeof signal.interpretation !== "string" || !signal.interpretation.trim()) return null;
       if (signal.value !== null && (typeof signal.value !== "number" || !Number.isFinite(signal.value))) return null;
+      if (signal.value !== null && signal.valueType === "integer" && !Number.isInteger(signal.value)) return null;
       signalIds.add(signal.id);
-      parsedSignals.push({ id: signal.id, name: signal.name, value: signal.value as number | null, unit: signal.unit });
+      parsedSignals.push({ id: signal.id, name: signal.name, valueType: signal.valueType, value: signal.value as number | null, unit: signal.unit, interpretation: signal.interpretation });
     }
     stepIds.add(stepId);
     snapshots.push({ stepId, timestamp, status: status as TelemetryStatus, signals: parsedSignals });
   }
 
   return snapshots.every((snapshot, index) => snapshot.stepId === `step-${String(index + 1).padStart(2, "0")}`)
-    ? { version: "telemetry-r1-v1", snapshots }
+    ? { version: "telemetry-r1-v2", snapshots }
     : null;
 }

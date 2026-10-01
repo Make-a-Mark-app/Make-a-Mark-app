@@ -1,0 +1,161 @@
+{
+  "version": "telemetry-r1-v2",
+  "snapshots": [
+    {
+      "stepId": "step-01",
+      "timestamp": "2024-07-07T10:00:00+01:00",
+      "status": "updating",
+      "signals": [
+        {
+          "id": "speed",
+          "name": "Speed",
+          "valueType": "number",
+          "value": 287,
+          "unit": "km/h",
+          "interpretation": "Shows the simulated car speed."
+        },
+        {
+          "id": "gear",
+          "name": "Gear",
+          "valueType": "integer",
+          "value": 7,
+          "unit": "gear",
+          "interpretation": "Shows the selected simulated gear."
+        },
+        {
+          "id": "throttle",
+          "name": "Throttle",
+          "valueType": "number",
+          "value": 94,
+          "unit": "%",
+          "interpretation": "Shows how far the throttle is applied."
+        },
+        {
+          "id": "brake",
+          "name": "Brake",
+          "valueType": "number",
+          "value": 0,
+          "unit": "%",
+          "interpretation": "Shows how much braking is applied."
+        }
+      ]
+    },
+    {
+      "stepId": "step-02",
+      "timestamp": "2024-07-07T10:01:00+01:00",
+      "status": "delayed",
+      "signals": [
+        {
+          "id": "speed",
+          "name": "Speed",
+          "valueType": "number",
+          "value": 274,
+          "unit": "km/h",
+          "interpretation": "Shows the simulated car speed."
+        },
+        {
+          "id": "gear",
+          "name": "Gear",
+          "valueType": "integer",
+          "value": 7,
+          "unit": "gear",
+          "interpretation": "Shows the selected simulated gear."
+        },
+        {
+          "id": "throttle",
+          "name": "Throttle",
+          "valueType": "number",
+          "value": 88,
+          "unit": "%",
+          "interpretation": "Shows how far the throttle is applied."
+        },
+        {
+          "id": "brake",
+          "name": "Brake",
+          "valueType": "number",
+          "value": 0,
+          "unit": "%",
+          "interpretation": "Shows how much braking is applied."
+        }
+      ]
+    },
+    {
+      "stepId": "step-03",
+      "timestamp": "2024-07-07T10:02:00+01:00",
+      "status": "stale",
+      "signals": [
+        {
+          "id": "speed",
+          "name": "Speed",
+          "valueType": "number",
+          "value": 261,
+          "unit": "km/h",
+          "interpretation": "Shows the simulated car speed."
+        },
+        {
+          "id": "gear",
+          "name": "Gear",
+          "valueType": "integer",
+          "value": 6,
+          "unit": "gear",
+          "interpretation": "Shows the selected simulated gear."
+        },
+        {
+          "id": "throttle",
+          "name": "Throttle",
+          "valueType": "number",
+          "value": null,
+          "unit": "%",
+          "interpretation": "Shows how far the throttle is applied."
+        },
+        {
+          "id": "brake",
+          "name": "Brake",
+          "valueType": "number",
+          "value": 12,
+          "unit": "%",
+          "interpretation": "Shows how much braking is applied."
+        }
+      ]
+    },
+    {
+      "stepId": "step-04",
+      "timestamp": "2024-07-07T10:03:00+01:00",
+      "status": "unavailable",
+      "signals": [
+        {
+          "id": "speed",
+          "name": "Speed",
+          "valueType": "number",
+          "value": null,
+          "unit": "km/h",
+          "interpretation": "Shows the simulated car speed."
+        },
+        {
+          "id": "gear",
+          "name": "Gear",
+          "valueType": "integer",
+          "value": null,
+          "unit": "gear",
+          "interpretation": "Shows the selected simulated gear."
+        },
+        {
+          "id": "throttle",
+          "name": "Throttle",
+          "valueType": "number",
+          "value": null,
+          "unit": "%",
+          "interpretation": "Shows how far the throttle is applied."
+        },
+        {
+          "id": "brake",
+          "name": "Brake",
+          "valueType": "number",
+          "value": null,
+          "unit": "%",
+          "interpretation": "Shows how much braking is applied."
+        }
+      ]
+    }
+  ]
+}

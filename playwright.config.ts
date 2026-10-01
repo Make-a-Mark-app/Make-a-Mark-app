@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = "http://127.0.0.1:" + (process.env.VITE_PORT ?? "5173");
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:" + (process.env.VITE_PORT ?? "5173");
 
 export default defineConfig({
   testDir: "./tests",
@@ -11,10 +11,12 @@ export default defineConfig({
     baseURL,
     trace: "retain-on-failure",
   },
-  webServer: {
-    command: "npm run dev",
-    url: baseURL,
-    reuseExistingServer: false,
-    timeout: 120_000,
-  },
+  ...(!process.env.PLAYWRIGHT_EXTERNAL && {
+    webServer: {
+      command: "npm run dev",
+      url: baseURL,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+  }),
 });

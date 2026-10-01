@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 const apiBaseURL = "http://127.0.0.1:" + (process.env.PORT ?? "4178");
 
 test("API metrics use low-cardinality labels and do not contain question text or demo values", async ({ request }) => {
+  test.skip(Boolean(process.env.PLAYWRIGHT_EXTERNAL), "The metrics endpoint stays private to the Compose network.");
   const privateQuestion = "Is this private prompt text 918273 supported?";
   const response = await request.post("/api/engineer", {
     data: { question: privateQuestion, context: { telemetry: { stepId: "step-04" } } },
@@ -20,6 +21,7 @@ test("API metrics use low-cardinality labels and do not contain question text or
 });
 
 test("API metrics count rejected request shapes without recording their contents", async ({ request }) => {
+  test.skip(Boolean(process.env.PLAYWRIGHT_EXTERNAL), "The metrics endpoint stays private to the Compose network.");
   const response = await request.post("/api/engineer", { data: { question: "invalid-secret-000".repeat(30) } });
   expect(response.status()).toBe(400);
 

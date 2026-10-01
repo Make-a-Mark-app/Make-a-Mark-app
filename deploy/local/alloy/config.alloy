@@ -7,7 +7,7 @@ discovery.relabel "local_compose_containers" {
 
   rule {
     source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
-    regex         = "make-a-mark-r1"
+    regex         = "make-a-mark-r1(-acceptance-[0-9]+)?"
     action        = "keep"
   }
 

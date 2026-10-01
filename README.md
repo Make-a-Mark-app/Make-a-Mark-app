@@ -51,7 +51,7 @@ Stop the stack with `docker compose -f deploy/local/compose.yaml down`; named Gr
 - **Race Engineer provider (optional):** Set an HTTPS `ENGINEER_PROVIDER_URL` and, when needed, `ENGINEER_PROVIDER_API_KEY` in the server environment. The server sends a JSON request with the question, detail preference, at most three retrieved reviewed records, and only selected Mission/telemetry context. The provider should return `{"answer":"…","recordIds":["…"]}`. The server discards IDs outside the retrieved records and resolves source links and metadata itself. With no provider configured or when it fails, the app uses a prepared response. Never put provider credentials in client-side variables.
 - **GCP demo hosting (optional):** Cloud project and deployment settings are only needed for the optional hosted profile. Keep them separate from local development settings; no cloud resource is required to run this prototype locally.
 
-Run the agreed full-app acceptance suite with `npm run test:e2e`. It starts the local frontend and API and uses deterministic mission content.
+Run the app acceptance suite with `npm run test:e2e`. It starts the local frontend and API and uses deterministic mission content. To run the same browser acceptance suite against the no-provider Compose stack, run `npm run test:e2e:compose`; this builds and starts an isolated Compose project, waits for each service health check, runs the app tests against the published web port, then removes only that temporary test stack and its volumes. It leaves a separately running default local profile untouched. If host ports `8080` or `3000` are already in use, override them, for example `WEB_PORT=8081 GRAFANA_PORT=3001 npm run test:e2e:compose`.
 
 ## Development documents
 

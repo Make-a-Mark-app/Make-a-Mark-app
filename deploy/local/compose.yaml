@@ -4,7 +4,8 @@ services:
   web:
     build:
       context: ../..
-      dockerfile: deploy/local/web/Dockerfile
+      dockerfile: deploy/local/Dockerfile
+      target: web
     ports:
       - "${WEB_PORT:-8080}:80"
     depends_on:
@@ -22,7 +23,8 @@ services:
   api:
     build:
       context: ../..
-      dockerfile: deploy/local/api/Dockerfile
+      dockerfile: deploy/local/Dockerfile
+      target: api
     environment:
       NODE_ENV: production
       APP_ENV: local
@@ -82,7 +84,15 @@ services:
       loki:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:12345/-/healthy || exit 1"]
+      test:
+        - CMD
+        - /bin/bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/12345 &&
+          printf 'GET /-/healthy HTTP/1.0\r\n\r\n' >&3 &&
+          IFS=' ' read -r protocol status rest <&3 &&
+          [ "$$status" = "200" ]
       interval: 20s
       timeout: 5s
       retries: 5

@@ -95,6 +95,14 @@ test("selected Mission and telemetry context resolves to canonical server values
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question: "What is the weather in Singapore?", context: { telemetry: { stepId: "step-04" } } }),
     });
+    const unsupportedMissionResponse = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: "Does the mission make money?", context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "air" } } }),
+    });
+    const unsupportedTelemetryResponse = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: "How should I improve battery life?", context: { telemetry: { stepId: "step-04" } } }),
+    });
     expect((await missionResponse.json()).mode).toBe("grounded_ai");
     expect((await telemetryResponse.json()).mode).toBe("grounded_ai");
     expect(providerInputs[0].missionSummary).toMatchObject({ selectedRoute: "Air" });
@@ -106,6 +114,8 @@ test("selected Mission and telemetry context resolves to canonical server values
     });
     expect(providerInputs[1]).not.toHaveProperty("missionSummary");
     expect((await unrelatedResponse.json()).mode).toBe("no_answer");
+    expect((await unsupportedMissionResponse.json()).mode).toBe("no_answer");
+    expect((await unsupportedTelemetryResponse.json()).mode).toBe("no_answer");
     expect(providerInputs).toHaveLength(2);
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));

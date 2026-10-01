@@ -41,7 +41,7 @@ export type EngineerDependencies = {
   provider?: EngineerProvider;
 };
 
-const stopWords = new Set(["a", "an", "and", "are", "at", "about", "can", "carbon", "did", "does", "do", "figure", "footprint", "for", "has", "have", "how", "i", "in", "is", "it", "lifetime", "many", "me", "my", "of", "on", "or", "please", "report", "say", "team", "tell", "the", "this", "to", "total", "what", "was", "were", "when", "with"]);
+const stopWords = new Set(["a", "an", "and", "are", "at", "about", "can", "carbon", "describe", "did", "does", "do", "explain", "figure", "footprint", "for", "happen", "happens", "has", "have", "how", "i", "include", "includes", "in", "is", "it", "lifetime", "many", "me", "mean", "means", "my", "of", "on", "or", "please", "report", "say", "show", "shows", "summarize", "team", "tell", "the", "this", "to", "total", "was", "were", "what", "when", "with", "work"]);
 const safeExplanationTerms = new Set(["a", "about", "according", "an", "and", "are", "as", "at", "based", "by", "claim", "context", "data", "describes", "during", "evidence", "figure", "from", "has", "have", "in", "is", "it", "lists", "means", "measure", "measured", "of", "on", "only", "period", "record", "reported", "reports", "result", "route", "says", "selected", "shows", "simulated", "snapshot", "source", "states", "the", "their", "this", "to", "telemetry", "unavailable", "uses", "was", "were", "with", "year"]);
 const groundingInstructions = "Explain only the supplied reviewed records and explicitly selected fictional context. Do not add facts, values, units, source metadata, mission outcomes, or telemetry details. Return JSON with only answer (a short explanation) and recordIds (IDs from the supplied records that support it). Do not create citations or URLs.";
 
@@ -55,6 +55,10 @@ function tokens(value: string): string[] {
   });
 }
 
+function hasSufficientKeywordCoverage(termCount: number, matchCount: number): boolean {
+  return termCount === 1 ? matchCount === 1 : matchCount >= 2 && matchCount / termCount >= 0.6;
+}
+
 function retrieveRecords(question: string, records: EvidenceRecord[]): EvidenceRecord[] {
   const terms = [...new Set(tokens(question).filter((term) => !stopWords.has(term)))];
   if (!terms.length) return [];
@@ -62,20 +66,24 @@ function retrieveRecords(question: string, records: EvidenceRecord[]): EvidenceR
     const words = new Set(tokens(record.id + " " + record.title + " " + record.topic + " " + record.claim));
     const score = terms.reduce((count, term) => count + (words.has(term) ? 1 : 0), 0);
     const exact = tokens(record.id).join(" ") === tokens(question).join(" ") || tokens(record.title).join(" ") === tokens(question).join(" ");
-    const sufficientlyRelevant = exact || (score >= 2 && score / terms.length >= 0.6);
+    const sufficientlyRelevant = exact || hasSufficientKeywordCoverage(terms.length, score);
     return { record, score: sufficientlyRelevant ? score : 0 };
   }).filter(({ score }) => score > 0).sort((left, right) => right.score - left.score)
     .slice(0, 3).map(({ record }) => record);
 }
 
 function selectedContextSupportsQuestion(question: string, mission?: EngineerProviderInput["missionSummary"], telemetry?: TelemetrySnapshot): boolean {
-  const words = new Set(tokens(question));
-  const missionTerms = ["air", "choice", "deliver", "delivery", "freight", "game", "mission", "road", "route", "sea", "scenario"];
-  const telemetryTerms = ["battery", "energy", "feed", "pressure", "signal", "snapshot", "stale", "status", "temperature", "telemetry", "tyre", "value", "updating", "delayed", "unavailable"];
-  return Boolean(
-    (mission && missionTerms.some((term) => words.has(term)))
-    || (telemetry && telemetryTerms.some((term) => words.has(term))),
-  );
+  const terms = [...new Set(tokens(question).filter((term) => !stopWords.has(term)))];
+  if (!terms.length) return false;
+  const matchesContext = (context: string): boolean => {
+    const words = new Set(tokens(context));
+    const overlap = terms.filter((term) => words.has(term)).length;
+    return hasSufficientKeywordCoverage(terms.length, overlap);
+  };
+  const missionContext = mission && ["fictional freight mission route scenario choice delivery", mission.title, mission.selectedRoute, mission.feedback].join(" ");
+  const telemetryContext = telemetry && ["simulated telemetry snapshot signals", telemetry.stepId, telemetry.timestamp, telemetry.status,
+    ...telemetry.signals.flatMap((signal) => [signal.id, signal.name, signal.value === null ? "unavailable" : String(signal.value), signal.unit])].join(" ");
+  return Boolean((missionContext && matchesContext(missionContext)) || (telemetryContext && matchesContext(telemetryContext)));
 }
 
 function resolveContext(request: EngineerRequest, dependencies: EngineerDependencies) {

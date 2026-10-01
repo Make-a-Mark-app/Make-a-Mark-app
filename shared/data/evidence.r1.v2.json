@@ -2,39 +2,6 @@
   "version": "evidence-r1-v2",
   "records": [
     {
-      "id": "bel-2023-nationalities",
-      "title": "Nationalities represented",
-      "topic": "Belong",
-      "claim": "23 nationalities represented within Aston Martin Aramco Formula One™ Team.",
-      "claimType": "report_result",
-      "value": 23,
-      "unit": "nationalities",
-      "reportingPeriod": "2023 DE&I Survey",
-      "source": {
-        "title": "Make A Mark ESG Report",
-        "edition": "2024",
-        "publicationDate": "Not stated in source",
-        "url": "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2024.pdf#page=59",
-        "location": "Printed p. 60 (PDF p. 59); footnote 24, printed p. 93"
-      },
-      "reviewState": "reviewed",
-      "reviewNote": "Source-reviewed for this prototype. The report identifies the 2023 DE&I Survey as the underlying source.",
-      "limitations": [
-        "The report does not state the survey response rate or workforce denominator.",
-        "Do not infer survey representativeness, nationality balance, or change over time from this count."
-      ],
-      "topicTag": "workforce-diversity",
-      "reviewer": "Codex source review",
-      "reviewDate": "2026-10-01",
-      "history": [
-        {
-          "state": "reviewed",
-          "date": "2026-10-01",
-          "note": "Existing reviewed record retained from the prior evidence dataset."
-        }
-      ]
-    },
-    {
       "id": "bel-2025-aleto-network",
       "title": "Aleto cohort: professional network",
       "topic": "Belong",
@@ -56,13 +23,7 @@
       "reviewNote": "The report describes perceived growth, not an independently measured increase. Its footnote attributes the data to the Aston Martin Aramco Formula One Team x Aleto Foundation Leadership Programme Impact Report 2024–2025.",
       "reviewer": "Codex source review",
       "reviewDate": "2026-10-01",
-      "history": [
-        {
-          "state": "reviewed",
-          "date": "2026-10-01",
-          "note": "Checked against the official 2025 Make A Mark Report PDF and official report page."
-        }
-      ],
+      "history": [],
       "limitations": [
         "The denominator, response count, survey question, and survey method are not stated in this report.",
         "Preserve the participant-reported qualifier; do not describe this as objectively measured network growth."
@@ -90,49 +51,10 @@
       "reviewNote": "The report combines leadership skills, public speaking and confidence in one participant-reported outcome. Its footnote attributes the data to the Aston Martin Aramco Formula One Team x Aleto Foundation Leadership Programme Impact Report 2024–2025.",
       "reviewer": "Codex source review",
       "reviewDate": "2026-10-01",
-      "history": [
-        {
-          "state": "reviewed",
-          "date": "2026-10-01",
-          "note": "Checked against the official 2025 Make A Mark Report PDF and official report page."
-        }
-      ],
+      "history": [],
       "limitations": [
         "The denominator, response count, survey question, and survey method are not stated in this report.",
         "The report does not support separate percentages for leadership, public speaking, or confidence."
-      ]
-    },
-    {
-      "id": "com-2024-make-a-mark-day",
-      "title": "Students reached at Make A Mark Day",
-      "topic": "Community",
-      "claim": "The team reports reaching and inspiring more than 300 students to pursue STEM careers during Make A Mark Day in British Grand Prix week.",
-      "claimType": "report_result",
-      "value": "more than 300",
-      "unit": "students",
-      "reportingPeriod": "2024",
-      "source": {
-        "title": "Make A Mark ESG Report",
-        "edition": "2024",
-        "publicationDate": "Not stated in source",
-        "url": "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2024.pdf#page=11",
-        "location": "Printed p. 12 (PDF p. 11); detail on printed p. 68 (PDF p. 67)"
-      },
-      "reviewState": "reviewed",
-      "reviewNote": "Source-reviewed for this prototype. The report attributes the programme and reach count to the team.",
-      "limitations": [
-        "The report does not describe its count method, attendance list, or unique-participant definition.",
-        "The report does not measure whether participants later pursued STEM careers; preserve the reported reach wording."
-      ],
-      "topicTag": "education-reach",
-      "reviewer": "Codex source review",
-      "reviewDate": "2026-10-01",
-      "history": [
-        {
-          "state": "reviewed",
-          "date": "2026-10-01",
-          "note": "Existing reviewed record retained from the prior evidence dataset."
-        }
       ]
     },
     {
@@ -157,13 +79,7 @@
       "reviewNote": "The report gives one combined count across schools and community groups.",
       "reviewer": "Codex source review",
       "reviewDate": "2026-10-01",
-      "history": [
-        {
-          "state": "reviewed",
-          "date": "2026-10-01",
-          "note": "Checked against the official 2025 Make A Mark Report PDF and official report page."
-        }
-      ],
+      "history": [],
       "limitations": [
         "The report does not split the 14 into separate school and community-group counts.",
         "Do not describe this as 14 schools plus additional community groups."
@@ -191,50 +107,10 @@
       "reviewNote": "The report describes two full days of activity and says the workshops were delivered with partner organisations.",
       "reviewer": "Codex source review",
       "reviewDate": "2026-10-01",
-      "history": [
-        {
-          "state": "reviewed",
-          "date": "2026-10-01",
-          "note": "Checked against the official 2025 Make A Mark Report PDF and official report page."
-        }
-      ],
+      "history": [],
       "limitations": [
         "The report does not explain whether this is a unique-student count, attendance count, or another participation measure.",
         "This reach figure does not measure learning or later career outcomes."
-      ]
-    },
-    {
-      "id": "env-2024-solar-generation",
-      "title": "Renewable solar generation",
-      "topic": "Environment",
-      "claim": "779,682.30 kWh of renewable solar energy generated in 2024.",
-      "claimType": "report_result",
-      "value": 779682.3,
-      "valueDisplay": "779,682.30",
-      "unit": "kWh",
-      "reportingPeriod": "2024",
-      "source": {
-        "title": "Make A Mark ESG Report",
-        "edition": "2024",
-        "publicationDate": "Not stated in source",
-        "url": "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2024.pdf#page=25",
-        "location": "Printed p. 26 (PDF p. 25); footnote 14, printed p. 93"
-      },
-      "reviewState": "reviewed",
-      "reviewNote": "Source-reviewed for this prototype. The report attributes the data to its solar panel provider.",
-      "limitations": [
-        "This is generation, not total energy use, avoided emissions, or a whole-team renewable-energy percentage.",
-        "The report-level limited assurance statement covers the corporate GHG inventory; it does not say this solar figure was independently assured."
-      ],
-      "topicTag": "renewable-generation",
-      "reviewer": "Codex source review",
-      "reviewDate": "2026-10-01",
-      "history": [
-        {
-          "state": "reviewed",
-          "date": "2026-10-01",
-          "note": "Existing reviewed record retained from the prior evidence dataset."
-        }
       ]
     },
     {
@@ -259,13 +135,7 @@
       "reviewNote": "Footnote 2 attributes avoided emissions to SAF certificates and says they were verified by the report's limited assurance. Footnote 14 describes air freight calculation using 2025 DEFRA conversion factors and reductions attributed from 2025 SAF certificates.",
       "reviewer": "Codex source review",
       "reviewDate": "2026-10-01",
-      "history": [
-        {
-          "state": "reviewed",
-          "date": "2026-10-01",
-          "note": "Checked against the official 2025 Make A Mark Report PDF and official report page."
-        }
-      ],
+      "history": [],
       "limitations": [
         "The reported value is avoided emissions and should not be recast as a measured inventory reduction.",
         "The Silverstone-lap equivalence uses 2025 DEFRA petrol conversion factors and circuit lap distance."
@@ -293,13 +163,7 @@
       "reviewNote": "The report attributes the reduction to more efficient logistics and SAF investment.",
       "reviewer": "Codex source review",
       "reviewDate": "2026-10-01",
-      "history": [
-        {
-          "state": "reviewed",
-          "date": "2026-10-01",
-          "note": "Checked against the official 2025 Make A Mark Report PDF and official report page."
-        }
-      ],
+      "history": [],
       "limitations": [
         "The report does not identify the comparator period or full calculation boundary for the 14% headline.",
         "Do not present this as a reduction in all team emissions or all Scope 3 emissions."

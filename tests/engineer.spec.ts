@@ -4,27 +4,27 @@ import { createApp } from "../server/app";
 
 test("the Engineer answers a supported evidence question with server-resolved citations", async ({ request }) => {
   const response = await request.post("/api/engineer", {
-    data: { question: "  What does the solar generation figure measure?  ", detailLevel: "concise" },
+    data: { question: "  What is the travel and logistics emissions reduction?  ", detailLevel: "concise" },
   });
 
   expect(response.ok()).toBeTruthy();
   expect(await response.json()).toMatchObject({
     mode: "prepared_fallback",
-    relatedRecordIds: ["env-2024-solar-generation"],
+    relatedRecordIds: ["env-2025-travel-logistics-reduction"],
     citations: [{
-      recordId: "env-2024-solar-generation",
-      title: "Renewable solar generation",
-      sourceTitle: "Make A Mark ESG Report",
-      sourceUrl: "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2024.pdf#page=25",
-      reportingPeriod: "2024",
-      sourceLocation: "Printed p. 26 (PDF p. 25); footnote 14, printed p. 93",
+      recordId: "env-2025-travel-logistics-reduction",
+      title: "Travel and logistics emissions reduction",
+      sourceTitle: "2025 Make A Mark Report",
+      sourceUrl: "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2025.pdf#page=8",
+      reportingPeriod: "2025 results (exact measurement dates and comparison baseline not stated)",
+      sourceLocation: "Printed p. 9 (PDF p. 8), 2025 impact highlights; see also printed p. 24, footnote 14",
     }],
   });
 });
 
 test("detail preference expands a prepared source explanation and unavailable telemetry stays null", async ({ request }) => {
-  const conciseResponse = await request.post("/api/engineer", { data: { question: "What does solar generation measure?" } });
-  const detailedResponse = await request.post("/api/engineer", { data: { question: "What does solar generation measure?", detailLevel: "detailed" } });
+  const conciseResponse = await request.post("/api/engineer", { data: { question: "What is the travel and logistics emissions reduction?" } });
+  const detailedResponse = await request.post("/api/engineer", { data: { question: "What is the travel and logistics emissions reduction?", detailLevel: "detailed" } });
   const telemetryResponse = await request.post("/api/engineer", {
     data: { question: "What signals does this simulated snapshot include?", context: { telemetry: { stepId: "step-04" } } },
   });
@@ -32,8 +32,8 @@ test("detail preference expands a prepared source explanation and unavailable te
   const concise = await conciseResponse.json();
   const detailed = await detailedResponse.json();
   const telemetry = await telemetryResponse.json();
-  expect(concise.answer).not.toContain("Printed p. 26");
-  expect(detailed.answer).toContain("Printed p. 26 (PDF p. 25)");
+  expect(concise.answer).not.toContain("Printed p. 9");
+  expect(detailed.answer).toContain("Printed p. 9 (PDF p. 8)");
   expect(telemetry.mode).toBe("prepared_fallback");
   expect(telemetry.answer).toContain("Speed: Unavailable");
   expect(telemetry.answer).toContain("Gear: Unavailable");
@@ -43,7 +43,7 @@ test("detail preference expands a prepared source explanation and unavailable te
 
 test("keyword retrieval supports the reviewed Belong and Community claims", async ({ request }) => {
   const questions = [
-    ["How many nationalities were represented?", "bel-2023-nationalities"],
+    ["What did the Aleto cohort feel about their professional network?", "bel-2025-aleto-network"],
     ["How many students were engaged?", "com-2025-make-a-mark-week-students"],
   ];
   for (const [question, recordId] of questions) {
@@ -144,8 +144,8 @@ test("a configured provider receives bounded reviewed records and returned citat
     provider: async (input) => {
       providerInput = input;
       return {
-        answer: "The reviewed report says solar generation was 779,682.30 kWh in 2024.",
-        recordIds: ["env-2024-solar-generation", "invented-record"],
+        answer: "The report reports a 14% reduction in travel and logistics emissions.",
+        recordIds: ["env-2025-travel-logistics-reduction", "invented-record"],
       };
     },
   });
@@ -158,21 +158,21 @@ test("a configured provider receives bounded reviewed records and returned citat
     const response = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question: "What does solar generation report?", detailLevel: "detailed" }),
+      body: JSON.stringify({ question: "What is the travel and logistics emissions reduction?", detailLevel: "detailed" }),
     });
     expect(response.ok).toBeTruthy();
     const result = await response.json();
-    expect(result).toMatchObject({ mode: "grounded_ai", answer: "The reviewed report says solar generation was 779,682.30 kWh in 2024." });
-    expect(result.relatedRecordIds).toEqual(["env-2024-solar-generation"]);
+    expect(result).toMatchObject({ mode: "grounded_ai", answer: "The report reports a 14% reduction in travel and logistics emissions." });
+    expect(result.relatedRecordIds).toEqual(["env-2025-travel-logistics-reduction"]);
     expect(result.citations).toHaveLength(1);
     expect(result.citations[0]).toMatchObject({
-      recordId: "env-2024-solar-generation",
-      sourceUrl: "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2024.pdf#page=25",
+      recordId: "env-2025-travel-logistics-reduction",
+      sourceUrl: "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2025.pdf#page=8",
     });
     expect(providerInput).toMatchObject({
-      question: "What does solar generation report?",
+      question: "What is the travel and logistics emissions reduction?",
       detailLevel: "detailed",
-      records: [{ id: "env-2024-solar-generation" }],
+      records: [{ id: "env-2025-travel-logistics-reduction" }],
     });
     expect(providerInput).not.toHaveProperty("telemetrySnapshot");
     expect(providerInput).not.toHaveProperty("missionSummary");
@@ -191,11 +191,11 @@ test("provider failure returns a prepared answer from the retrieved record", asy
   try {
     const response = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question: "What does solar generation report?" }),
+      body: JSON.stringify({ question: "What is the travel and logistics emissions reduction?" }),
     });
     const result = await response.json();
     expect(result.mode).toBe("prepared_fallback");
-    expect(result.relatedRecordIds).toEqual(["env-2024-solar-generation"]);
+    expect(result.relatedRecordIds).toEqual(["env-2025-travel-logistics-reduction"]);
     expect(result.limitations).toContain("The optional explanation provider is unavailable; this prepared response uses only the selected context and reviewed records.");
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
@@ -204,7 +204,7 @@ test("provider failure returns a prepared answer from the retrieved record", asy
 
 test("the API rejects provider claims outside the retrieved record and uses the prepared answer", async () => {
   const app = createApp({
-    provider: async () => ({ answer: "Solar generation improved race performance by 25%.", recordIds: ["env-2024-solar-generation"] }),
+    provider: async () => ({ answer: "Travel and logistics emissions improved race performance by 25%.", recordIds: ["env-2025-travel-logistics-reduction"] }),
   });
   const server = createServer(app);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -214,11 +214,11 @@ test("the API rejects provider claims outside the retrieved record and uses the 
   try {
     const response = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question: "What does solar generation measure?" }),
+      body: JSON.stringify({ question: "What is the travel and logistics emissions reduction?" }),
     });
     const result = await response.json();
     expect(result.mode).toBe("prepared_fallback");
-    expect(result.answer).toContain("779,682.30 kWh");
+    expect(result.answer).toContain("14% reduction in travel and logistics emissions");
     expect(result.answer).not.toContain("25%");
     expect(result.limitations).toContain("The provider response could not be grounded in the selected records and context, so it was not used.");
   } finally {
@@ -235,19 +235,19 @@ test("the full app asks only on submit and sends only selected context", async (
   await page.goto("/engineer");
   expect(submittedBodies).toEqual([]);
   await expect(page.getByRole("heading", { name: "Ask the Race Engineer." })).toBeVisible();
-  await page.getByLabel("YOUR QUESTION").fill("What does the solar generation figure measure?");
+  await page.getByLabel("YOUR QUESTION").fill("What is the travel and logistics emissions reduction?");
   await page.getByLabel("ANSWER DETAIL").selectOption("detailed");
   await page.getByLabel(/Include simulated snapshot/).check();
   await page.getByRole("button", { name: "Send question" }).click();
 
-  await expect(page.getByText("779,682.30 kWh of renewable solar energy generated in 2024.", { exact: false }).first()).toBeVisible();
-  await expect(page.getByRole("link", { name: /Renewable solar generation/ })).toHaveAttribute(
+  await expect(page.getByText("AMF1 reports a 14% reduction in travel and logistics emissions through", { exact: false }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /Travel and logistics emissions reduction/ })).toHaveAttribute(
     "href",
-    "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2024.pdf#page=25",
+    "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2025.pdf#page=8",
   );
   expect(submittedBodies).toHaveLength(1);
   expect(submittedBodies[0]).toMatchObject({
-    question: "What does the solar generation figure measure?",
+    question: "What is the travel and logistics emissions reduction?",
     detailLevel: "detailed",
     context: { telemetry: { stepId: "step-01" } },
   });

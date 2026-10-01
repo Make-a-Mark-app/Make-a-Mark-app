@@ -1,5 +1,5 @@
 import type { EvidenceRecord } from "../shared/contracts/evidence.js";
-import { lookupEvidence } from "../shared/contracts/evidence.js";
+import { lookupEvidence, normalizeLiteralSearchText } from "../shared/contracts/evidence.js";
 import { createMissionOutcome, type MissionDefinition } from "../shared/contracts/mission.js";
 import type { TelemetryDataset, TelemetrySnapshot } from "../shared/contracts/telemetry.js";
 import { parseEngineerRequest, type EngineerRequest } from "../shared/contracts/engineer.js";
@@ -55,19 +55,18 @@ function tokens(value: string): string[] {
   });
 }
 
-function literalTokens(value: string): string[] {
-  return value.toLocaleLowerCase("en").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").match(/[a-z0-9]+/g) ?? [];
-}
-
 function hasSufficientKeywordCoverage(termCount: number, matchCount: number): boolean {
   return termCount === 1 ? matchCount === 1 : matchCount >= 2 && matchCount / termCount >= 0.6;
 }
 
 function retrieveRecords(question: string, records: EvidenceRecord[]): EvidenceRecord[] {
-  const terms = [...new Set(literalTokens(question).filter((term) => !stopWords.has(term)))];
+  const terms = [...new Set(normalizeLiteralSearchText(question).split(" ").filter((term) => term && !stopWords.has(term)))];
   if (!terms.length) return [];
+  const exactTitleMatches = lookupEvidence(records, { query: terms.join(" "), limit: 10 })
+    .filter((record) => normalizeLiteralSearchText(record.title).split(" ").filter((term) => !stopWords.has(term)).join(" ") === terms.join(" "));
+  if (exactTitleMatches.length) return exactTitleMatches.slice(0, 3);
   const exactMatches = lookupEvidence(records, { query: terms.join(" "), limit: 10 });
-  const exactIds = new Set(exactMatches.map(({ id }) => id));
+  if (exactMatches.length) return exactMatches.slice(0, 3);
   const scores = new Map<string, { record: EvidenceRecord; score: number }>();
   for (const term of terms) {
     for (const record of lookupEvidence(records, { query: term, limit: 10 })) {
@@ -78,7 +77,7 @@ function retrieveRecords(question: string, records: EvidenceRecord[]): EvidenceR
   }
   return [...scores.values()]
     .filter(({ score }) => hasSufficientKeywordCoverage(terms.length, score))
-    .sort((left, right) => Number(exactIds.has(right.record.id)) - Number(exactIds.has(left.record.id)) || right.score - left.score || left.record.id.localeCompare(right.record.id, "en"))
+    .sort((left, right) => right.score - left.score || left.record.id.localeCompare(right.record.id, "en"))
     .slice(0, 3)
     .map(({ record }) => record);
 }

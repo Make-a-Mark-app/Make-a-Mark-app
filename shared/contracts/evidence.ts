@@ -1,6 +1,6 @@
 export const evidenceTopics = ["Environment", "Belong", "Community", "Governance"] as const;
 export type EvidenceTopic = typeof evidenceTopics[number];
-export const evidenceTopicTags = ["travel-logistics-reduction", "travel-logistics-avoided", "aleto-network", "aleto-skills-confidence", "student-reach", "education-community-organisations", "renewable-generation", "workforce-diversity", "education-reach"] as const;
+export const evidenceTopicTags = ["travel-logistics-reduction", "travel-logistics-avoided", "aleto-network", "aleto-skills-confidence", "student-reach", "education-community-organisations"] as const;
 export type EvidenceTopicTag = typeof evidenceTopicTags[number];
 
 export const claimTypes = ["report_result", "target", "method"] as const;
@@ -8,6 +8,16 @@ export type ClaimType = typeof claimTypes[number];
 
 export const reviewStates = ["illustrative", "pending_review", "reviewed", "rejected", "corrected", "withdrawn"] as const;
 export type ReviewState = typeof reviewStates[number];
+
+export type EvidenceHistoryEntry = {
+  claim: string;
+  value?: string | number;
+  valueDisplay?: string;
+  unit?: string;
+  reviewState: ReviewState;
+  date: string;
+  note: string;
+};
 
 export type EvidenceSource = {
   title: string;
@@ -33,7 +43,7 @@ export type EvidenceRecord = {
   reviewNote: string;
   reviewer: string;
   reviewDate: string;
-  history: Array<{ state: ReviewState; date: string; note: string }>;
+  history: EvidenceHistoryEntry[];
   limitations: string[];
 };
 
@@ -92,7 +102,7 @@ export function parseEvidenceRecord(value: unknown): EvidenceRecord | null {
     (value.valueDisplay !== undefined && value.value === undefined) ||
     !(value.reportingPeriod === null || nonEmptyString(value.reportingPeriod)) ||
     !includes(reviewStates, value.reviewState) || !nonEmptyString(value.reviewNote) || !nonEmptyString(value.reviewer) || !nonEmptyString(value.reviewDate) ||
-    !Array.isArray(value.history) || !value.history.every((entry) => isRecord(entry) && hasOnlyKeys(entry, ["state", "date", "note"]) && includes(reviewStates, entry.state) && nonEmptyString(entry.date) && nonEmptyString(entry.note)) ||
+    !Array.isArray(value.history) || !value.history.every((entry) => isRecord(entry) && hasOnlyKeys(entry, ["claim", "value", "valueDisplay", "unit", "reviewState", "date", "note"]) && nonEmptyString(entry.claim) && includes(reviewStates, entry.reviewState) && nonEmptyString(entry.date) && nonEmptyString(entry.note) && (entry.value === undefined || typeof entry.value === "string" || (typeof entry.value === "number" && Number.isFinite(entry.value))) && (entry.valueDisplay === undefined || nonEmptyString(entry.valueDisplay)) && (entry.unit === undefined || nonEmptyString(entry.unit)) && ((entry.value === undefined) === (entry.unit === undefined))) ||
     !Array.isArray(value.limitations) || !value.limitations.every(nonEmptyString) ||
     !nonEmptyString(source.title) || !nonEmptyString(source.edition) || !validDate ||
     !isHttpsUrl(source.url) || !validLocation
@@ -119,23 +129,23 @@ export function isReportedImpact(record: EvidenceRecord): boolean {
   return record.reviewState === "reviewed" && record.claimType === "report_result" && record.topic !== "Governance";
 }
 
-function normalizeLiteral(value: string): string {
+export function normalizeLiteralSearchText(value: string): string {
   return value.toLocaleLowerCase("en").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
 }
 
 export type EvidenceLookupOptions = { query?: string; pillar?: EvidenceTopic; topicTag?: EvidenceTopicTag; period?: string; limit?: number };
 
 export function lookupEvidence(records: EvidenceRecord[], options: EvidenceLookupOptions = {}): EvidenceRecord[] {
-  const query = normalizeLiteral(options.query ?? "");
+  const query = normalizeLiteralSearchText(options.query ?? "");
   const queryWords = query ? query.split(" ") : [];
   const limit = Math.max(0, Math.min(10, Number.isInteger(options.limit) ? options.limit! : 10));
   return records.filter(isReportedImpact)
     .filter((record) => !options.pillar || record.topic === options.pillar)
     .filter((record) => !options.topicTag || record.topicTag === options.topicTag)
-    .filter((record) => !options.period || normalizeLiteral(record.reportingPeriod ?? "not stated").includes(normalizeLiteral(options.period!)))
+    .filter((record) => !options.period || normalizeLiteralSearchText(record.reportingPeriod ?? "not stated").includes(normalizeLiteralSearchText(options.period!)))
     .map((record) => {
       const fields = [record.id, record.title, record.topic, record.topicTag, record.claim, record.source.title, record.source.edition, record.reportingPeriod ?? "not stated", record.source.location ?? "not stated", ...record.limitations];
-      const normalizedFields = fields.map(normalizeLiteral);
+      const normalizedFields = fields.map(normalizeLiteralSearchText);
       const exact = query.length > 0 && normalizedFields.some((field) => field === query || field.startsWith(query + " ") || field.includes(" " + query + " ") || field.endsWith(" " + query));
       const words = new Set(normalizedFields.join(" ").split(" "));
       const matches = queryWords.filter((word) => words.has(word)).length;

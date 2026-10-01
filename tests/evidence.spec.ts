@@ -20,7 +20,7 @@ const solarRecord: EvidenceRecord = {
   reviewNote: "Checked against the cited source.",
   reviewer: "Test reviewer",
   reviewDate: "2026-10-01",
-  history: [{ state: "reviewed", date: "2026-10-01", note: "Checked against the cited source." }],
+  history: [],
   limitations: ["The source reports this value only for its stated period."],
 };
 
@@ -42,7 +42,7 @@ test("the evidence API exposes validated source-reviewed claims with provenance"
 
   const dataset = await response.json();
   expect(dataset.version).toBe("evidence-r1-v2");
-  expect(dataset.records).toHaveLength(9);
+  expect(dataset.records).toHaveLength(6);
   expect(dataset.records.map((record: { topic: string }) => record.topic)).toEqual(
     expect.arrayContaining(["Environment", "Belong", "Community"]),
   );
@@ -119,6 +119,7 @@ test("reviewed evidence details show source, period, review note, and limitation
   await expect(dialog.locator(".record-fields > div").filter({ hasText: "REPORTED VALUE" })).toContainText("14 % reduction");
   await expect(dialog).toContainText("2025 results");
   await expect(dialog).toContainText("comparison baseline");
+  await expect(dialog).toContainText("No prior corrections recorded.");
   await expect(dialog.getByRole("link", { name: "Open source report" })).toHaveAttribute(
     "href",
     "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2025.pdf#page=8",
@@ -140,7 +141,9 @@ test("the evidence lookup normalizes literal text, applies filters, and excludes
   const unsupported = await request.get("/api/evidence?q=dragon%20telemetry");
   expect(await unsupported.json()).toMatchObject({ status: "not_enough_evidence", records: [] });
 
-  const records = [solarRecord, { ...solarRecord, id: "test-corrected", reviewState: "corrected" as const }, { ...solarRecord, id: "test-withdrawn", reviewState: "withdrawn" as const }];
+  const corrected = parseEvidenceRecord({ ...solarRecord, id: "env-test-source-claim", reviewState: "corrected", history: [{ claim: "The previous value was four kilograms.", value: 4, unit: "kg", reviewState: "reviewed", date: "2026-10-01", note: "Replaced after a source correction." }] });
+  expect(corrected?.history[0]).toMatchObject({ claim: "The previous value was four kilograms.", value: 4, unit: "kg" });
+  const records = [solarRecord, { ...solarRecord, id: "test-corrected", reviewState: "corrected" as const, history: corrected!.history }, { ...solarRecord, id: "test-withdrawn", reviewState: "withdrawn" as const }];
   expect(lookupEvidence(records).map(({ id }) => id)).toEqual(["env-test-source-claim"]);
   const many = Array.from({ length: 12 }, (_, index) => ({ ...solarRecord, id: `test-${String(index).padStart(2, "2")}` }));
   expect(lookupEvidence(many).map(({ id }) => id)).toHaveLength(10);

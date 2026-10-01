@@ -82,8 +82,14 @@ test("visitors can browse reviewed claims separately from illustrative samples",
 test("the About page reflects the reviewed library and Engineer boundary", async ({ page }) => {
   await page.goto("/about");
   await expect(page.getByText(/limited set of source-reviewed claims/i)).toBeVisible();
-  await expect(page.getByText(/does not retrieve evidence records yet/i)).toBeVisible();
+  await expect(page.getByText(/retrieves only reviewed records and context you choose to include/i)).toBeVisible();
   await expect(page.getByText("This prototype uses illustrative content only.")).toHaveCount(0);
+});
+
+test("the Home page points to the available source-reviewed library", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText(/three source-reviewed claims/i)).toBeVisible();
+  await expect(page.getByText("Reviewed evidence will appear here.")).toHaveCount(0);
 });
 
 test("reviewed evidence details show source, period, review note, and limitations", async ({ page }) => {

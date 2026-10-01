@@ -35,9 +35,9 @@ test("detail preference expands a prepared source explanation and unavailable te
   expect(concise.answer).not.toContain("Printed p. 26");
   expect(detailed.answer).toContain("Printed p. 26 (PDF p. 25)");
   expect(telemetry.mode).toBe("prepared_fallback");
-  expect(telemetry.answer).toContain("Battery temperature: Unavailable");
-  expect(telemetry.answer).toContain("Tyre pressure: Unavailable");
-  expect(telemetry.answer).not.toMatch(/Battery temperature: \d/);
+  expect(telemetry.answer).toContain("Speed: Unavailable");
+  expect(telemetry.answer).toContain("Gear: Unavailable");
+  expect(telemetry.answer).not.toMatch(/Speed: \d/);
   expect(telemetry.limitations).toContain("Telemetry values are simulated fixture data, not a live AMF1 feed.");
 });
 
@@ -74,7 +74,7 @@ test("selected Mission and telemetry context resolves to canonical server values
       providerInputs.push(input as unknown as Record<string, unknown>);
       return input.missionSummary
         ? { answer: "Air: The route prioritizes a tight delivery window.", recordIds: [] }
-        : { answer: "The simulated snapshot is unavailable; battery temperature, tyre pressure, and energy recovery are unavailable.", recordIds: [] };
+        : { answer: "The simulated snapshot is unavailable; Speed, Gear, Throttle, and Brake are unavailable.", recordIds: [] };
     },
   });
   const server = createServer(app);
@@ -101,7 +101,7 @@ test("selected Mission and telemetry context resolves to canonical server values
     expect(providerInputs[0]).not.toHaveProperty("telemetrySnapshot");
     expect(providerInputs[1].telemetrySnapshot).toMatchObject({
       stepId: "step-04", status: "unavailable", signals: expect.arrayContaining([
-        { id: "battery-temp", name: "Battery temperature", value: null, unit: "°C" },
+        expect.objectContaining({ id: "speed", name: "Speed", value: null, unit: "km/h", valueType: "number" }),
       ]),
     });
     expect(providerInputs[1]).not.toHaveProperty("missionSummary");

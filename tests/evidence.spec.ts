@@ -79,16 +79,37 @@ test("visitors can browse reviewed claims separately from illustrative samples",
   await expect(page.getByRole("dialog")).toContainText("Target");
 });
 
+test("visitors can filter reviewed claims by reporting period", async ({ page }) => {
+  await page.goto("/library");
+
+  const periodFilter = page.getByRole("combobox", { name: "Filter by reporting period" });
+  await expect(periodFilter).toBeVisible();
+  await expect(periodFilter.locator("option")).toHaveText([
+    "All periods",
+    "2024",
+    "2023 DE&I Survey",
+  ]);
+
+  await periodFilter.selectOption("2023 DE&I Survey");
+  await expect(page.getByRole("heading", { name: "Nationalities represented" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Renewable solar generation" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Students reached at Make A Mark Day" })).toHaveCount(0);
+
+  await periodFilter.selectOption("all");
+  await expect(page.getByRole("heading", { name: "Renewable solar generation" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Students reached at Make A Mark Day" })).toBeVisible();
+});
+
 test("the About page reflects the reviewed library and Engineer boundary", async ({ page }) => {
   await page.goto("/about");
   await expect(page.getByText(/limited set of source-reviewed claims/i)).toBeVisible();
-  await expect(page.getByText(/retrieves only reviewed records and context you choose to include/i)).toBeVisible();
+  await expect(page.getByText(/retrieves reviewed records and only the mission or simulated telemetry context you choose to include/i)).toBeVisible();
   await expect(page.getByText("This prototype uses illustrative content only.")).toHaveCount(0);
 });
 
 test("the Home page points to the available source-reviewed library", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText(/three source-reviewed claims/i)).toBeVisible();
+  await expect(page.getByText("Source-reviewed claims are available to browse.")).toBeVisible();
   await expect(page.getByText("Reviewed evidence will appear here.")).toHaveCount(0);
 });
 

@@ -31,6 +31,10 @@ function isIllustrativeSample(record: LibraryRecord): record is IllustrativeSamp
   return "review" in record;
 }
 
+function recordPeriod(record: LibraryRecord): string {
+  return isIllustrativeSample(record) ? record.period : record.reportingPeriod ?? "No reporting period stated";
+}
+
 const navItems: Array<{ id: Screen; label: string; href: string }> = [
   { id: "world", label: "World", href: "/world" },
   { id: "mission", label: "Freight mission", href: "/mission" },
@@ -41,7 +45,7 @@ const navItems: Array<{ id: Screen; label: string; href: string }> = [
 
 const screenPaths: Record<Screen, string> = {
   home: "/", world: "/world", mission: "/mission/freight", library: "/library",
-  telemetry: "/telemetry", engineer: "/engineer", summary: "/summary", about: "/about",
+  telemetry: "/telemetry", engineer: "/engineer", summary: "/summary", about: "/method",
 };
 
 function readSavedDiscovery(): DiscoveryRecap {
@@ -83,6 +87,7 @@ function App() {
   const [motionOn, setMotionOn] = useState(!window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [search, setSearch] = useState("");
   const [topic, setTopic] = useState("All topics");
+  const [period, setPeriod] = useState("all");
   const [evidenceView, setEvidenceView] = useState<EvidenceView>("reported");
   const [selectedRecord, setSelectedRecord] = useState<LibraryRecord | null>(() => {
     const id = window.location.pathname.startsWith("/library/") ? window.location.pathname.split("/")[2] : "";
@@ -154,9 +159,16 @@ function App() {
         ? `${record.title} ${record.summary} ${record.topic} ${record.claimType} ${record.source}`
         : `${record.title} ${record.claim} ${record.topic} ${record.claimType} ${record.source.title}`;
       const matchesSearch = searchableText.toLowerCase().includes(search.toLowerCase());
-      return matchesSearch && (topic === "All topics" || record.topic === topic);
+      return matchesSearch
+        && (topic === "All topics" || record.topic === topic)
+        && (period === "all" || recordPeriod(record) === period);
     });
-  }, [evidenceView, search, topic]);
+  }, [evidenceView, period, search, topic]);
+
+  const periodOptions = useMemo(() => {
+    const records: LibraryRecord[] = evidenceView === "reported" ? evidenceRecords : illustrativeSamples;
+    return [...new Set(records.map(recordPeriod))];
+  }, [evidenceView]);
 
   function openRecord(record: LibraryRecord) {
     window.history.pushState({}, "", `/library/${record.id}`);
@@ -245,7 +257,7 @@ function App() {
         {screen === "home" && <Home />}
         {screen === "world" && <World car={car} moveCar={moveCar} found={discovery.foundToken} onFind={() => setDiscovery((d) => ({ ...d, foundToken: true, topics: d.topics.includes("Environment") ? d.topics : [...d.topics, "Environment"] }))} status={status} onNavigate={navigate} />}
         {screen === "mission" && <Mission discovery={discovery} onChoose={chooseRoute} onFinish={finishMission} onRetry={retryMission} onNavigate={navigate} status={status} />}
-        {screen === "library" && <Library search={search} setSearch={setSearch} topic={topic} setTopic={setTopic} view={evidenceView} setView={setEvidenceView} records={visibleRecords} onOpen={openRecord} onNavigate={navigate} />}
+        {screen === "library" && <Library search={search} setSearch={setSearch} topic={topic} setTopic={setTopic} period={period} setPeriod={setPeriod} periodOptions={periodOptions} view={evidenceView} setView={(view) => { setEvidenceView(view); setPeriod("all"); }} records={visibleRecords} onOpen={openRecord} onNavigate={navigate} />}
         {screen === "telemetry" && <Telemetry index={telemetryIndex} onSelect={setTelemetryIndex} />}
         {screen === "engineer" && <Engineer question={question} setQuestion={setQuestion} reply={reply} asking={asking} onSubmit={askEngineer} currentChoice={discovery.routeChoice} detailLevel={detailLevel} setDetailLevel={setDetailLevel} includeMissionContext={includeMissionContext} setIncludeMissionContext={setIncludeMissionContext} includeTelemetryContext={includeTelemetryContext} setIncludeTelemetryContext={setIncludeTelemetryContext} telemetrySnapshot={telemetrySnapshots[telemetryIndex]} />}
         {screen === "summary" && <Summary discovery={discovery} onNavigate={navigate} onClear={clearDiscoveries} status={status} />}
@@ -421,11 +433,14 @@ function Mission({ discovery, onChoose, onFinish, onRetry, onNavigate, status }:
   );
 }
 
-function Library({ search, setSearch, topic, setTopic, view, setView, records, onOpen, onNavigate }: {
+function Library({ search, setSearch, topic, setTopic, period, setPeriod, periodOptions, view, setView, records, onOpen, onNavigate }: {
   search: string;
   setSearch: (value: string) => void;
   topic: string;
   setTopic: (value: string) => void;
+  period: string;
+  setPeriod: (value: string) => void;
+  periodOptions: string[];
   view: EvidenceView;
   setView: (value: EvidenceView) => void;
   records: LibraryRecord[];
@@ -453,7 +468,7 @@ function Library({ search, setSearch, topic, setTopic, view, setView, records, o
       ) : (
         <>
           {!isReportedView && <p className="sample-explainer">Illustrative samples are examples, not reported claims. Illustrative demo data — not live AMF1 data or a measured impact result.</p>}
-          <div className="library-toolbar"><label className="search-field"><Search size={17} /><span className="sr-only">Search evidence library</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search topics, terms, or claim types" /></label><label className="filter-select"><span className="sr-only">Filter by topic</span><select value={topic} onChange={(e) => setTopic(e.target.value)}><option>All topics</option><option>Environment</option><option>Belong</option><option>Community</option><option>Governance</option></select><ChevronDown size={15} /></label></div>
+          <div className="library-toolbar"><label className="search-field"><Search size={17} /><span className="sr-only">Search evidence library</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search topics, terms, or claim types" /></label><label className="filter-select"><span className="sr-only">Filter by topic</span><select value={topic} onChange={(e) => setTopic(e.target.value)}><option>All topics</option><option>Environment</option><option>Belong</option><option>Community</option><option>Governance</option></select><ChevronDown size={15} /></label><label className="filter-select"><span className="sr-only">Filter by reporting period</span><select value={period} onChange={(e) => setPeriod(e.target.value)}><option value="all">All periods</option>{periodOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select><ChevronDown size={15} /></label></div>
           <div className="library-count"><span>{records.length} {isReportedView ? "REPORTED CLAIM" : "ILLUSTRATIVE SAMPLE"}{records.length === 1 ? "" : "S"}</span><span>{isReportedView ? "REVIEWED CLAIMS ONLY" : "NOT REPORTED IMPACT"}</span></div>
           <div className="evidence-list">{records.length ? records.map((record, index) => {
             const illustrative = isIllustrativeSample(record);

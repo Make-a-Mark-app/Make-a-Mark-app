@@ -4,7 +4,7 @@ An inclusive hackathon R1 prototype plan for one fictional freight mission, a ma
 
 ## Current prototype status
 
-The current local app is React/Vite with an Express API. The fictional freight mission and its deterministic outcome use shared runtime-validated contracts in the browser and API. A small Discovery recap stays in this browser and can be cleared from the summary page. The evidence library includes three source-reviewed claims from the official Make A Mark ESG Report 2024, with scope notes and limitations; illustrative samples remain separate. Simulated telemetry advances through a fixed, versioned fixture. The Race Engineer retrieves a bounded set of reviewed records, resolves citations from those records, and can optionally call a server-configured provider. Docker Compose and Grafana observability services remain planned work.
+The current local app is React/Vite with an Express API. The fictional freight mission and its deterministic outcome use shared runtime-validated contracts in the browser and API. A small Discovery recap stays in this browser and can be cleared from the summary page. The evidence library includes three source-reviewed claims from the official Make A Mark ESG Report 2024, with scope notes and limitations; illustrative samples remain separate. Simulated telemetry advances through a fixed, versioned fixture. The Race Engineer retrieves a bounded set of reviewed records, resolves citations from those records, and can optionally call a server-configured provider. The default local Compose stack includes the production web/API containers and Grafana, Loki, Prometheus, and Alloy observability services.
 
 ## R1 boundaries
 
@@ -32,6 +32,19 @@ npm run build
 npm start
 ```
 
+## Run the full local Compose stack
+
+Docker Desktop with Compose is required. From the repository root, optionally copy `.env.example` to `.env` and set a local Grafana password. The Race Engineer provider values stay blank by default; no model key, GCP project, or hosted provider is required.
+
+```sh
+cp .env.example .env
+docker compose -f deploy/local/compose.yaml up --build
+```
+
+Open `http://localhost:8080`. The web/API health endpoint is `http://localhost:8080/api/health`; Grafana is bound to `http://127.0.0.1:3000` (default local login: `admin` / `admin`). Prometheus, Loki, API, and Alloy have no published host ports. Grafana includes a provisioned dashboard for API availability, latency, validation failures, Engineer response modes, provider errors, log volume, and Prometheus storage. API logs include only the route, method, status class, response mode, duration, and sanitized provider error category; they exclude questions, prompts, evidence text, selected context, simulated values, and credentials.
+
+Stop the stack with `docker compose -f deploy/local/compose.yaml down`; named Grafana, Loki, and Prometheus state is preserved. To remove only those local observability volumes, run `docker compose -f deploy/local/compose.yaml down -v`. Neither command changes source files, the versioned demo fixture, or browser discoveries. Clear browser `localStorage` separately to reset discoveries. Nginx publishes only the web port (default `8080`), while Grafana is loopback-bound (default `3000`).
+
 ## Configuration checklist
 
 - **Local development (required):** Install Node.js and npm, then run `npm install`. `npm run dev` starts the Vite app and local Express API. `npm run build` type-checks and builds the app. No `.env` file, GCP project, model credential, or provider selection is needed for the mission and evidence-preview paths.
@@ -53,4 +66,4 @@ Run the agreed full-app acceptance suite with `npm run test:e2e`. It starts the 
 - [Visual fidelity ledger](docs/design/fidelity-ledger.md)
 - [Evidence source review notes](docs/research/evidence-review.md)
 
-Docker Compose and Grafana instructions are target plans. They become runnable after the implementation adds the described files and configuration. An optional hosted demo profile uses Google Cloud Run with an HTTPS load balancer; it is documented separately and is not needed for local development. No Google Cloud project or deployment resources are configured yet.
+The local Compose stack is the default deployment and acceptance profile. The optional hosted demo profile uses Google Cloud Run with an HTTPS load balancer; it is documented separately and is not needed for local development. No Google Cloud project or deployment resources are configured.

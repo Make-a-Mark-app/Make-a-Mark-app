@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "test:e2e": "playwright test",
     "start": "tsx server/index.ts",
+    "build:server": "tsc -p tsconfig.server.build.json",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

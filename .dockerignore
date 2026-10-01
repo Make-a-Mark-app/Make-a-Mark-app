@@ -1,0 +1,14 @@
+.git
+.github
+.agents
+.codex
+node_modules
+dist
+dist-server
+test-results
+playwright-report
+coverage
+*.log
+.env
+.env.*
+!.env.example

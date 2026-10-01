@@ -1,0 +1,101 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "min": 0, "max": 1, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } }, "overrides": [] },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showPercentChange": false, "textMode": "auto" },
+      "targets": [{ "expr": "up{job=\"api\"}", "legendFormat": "API", "refId": "A" }],
+      "title": "API availability",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 5, "w": 9, "x": 6, "y": 0 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [{ "expr": "sum by (status_class) (rate(impact_drive_http_requests_total{route!=\"/metrics\"}[5m]))", "legendFormat": "{{status_class}}", "refId": "A" }],
+      "title": "HTTP request rate by status",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 5, "w": 9, "x": 15, "y": 0 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le, route) (rate(impact_drive_http_request_duration_seconds_bucket{route!=\"/metrics\"}[5m])))", "legendFormat": "{{route}} p95", "refId": "A" }],
+      "title": "API latency p95",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 5 },
+      "id": 4,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [{ "expr": "sum by (route) (rate(impact_drive_validation_failures_total[5m]))", "legendFormat": "{{route}}", "refId": "A" }],
+      "title": "Validation failures",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 5 },
+      "id": 5,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [{ "expr": "sum by (mode) (rate(impact_drive_engineer_responses_total[5m]))", "legendFormat": "{{mode}}", "refId": "A" }],
+      "title": "Race Engineer response modes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 5 },
+      "id": 6,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [{ "expr": "sum by (category) (rate(impact_drive_engineer_provider_errors_total[5m]))", "legendFormat": "{{category}}", "refId": "A" }],
+      "title": "Optional provider errors",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "decbytes", "min": 0, "max": 536870912 }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 11 },
+      "id": 7,
+      "options": { "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [{ "expr": "prometheus_tsdb_storage_blocks_bytes", "legendFormat": "Prometheus block storage (512 MB configured cap)", "refId": "A" }],
+      "title": "Prometheus storage use (7-day / 512 MB retention cap)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 11 },
+      "id": 8,
+      "options": { "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [{ "expr": "sum(count_over_time({environment=\"local\"}[1h]))", "legendFormat": "Log lines", "refId": "A" }],
+      "title": "Local log volume (one hour; Loki keeps seven days)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["local", "r1"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Impact Drive local operations",
+  "uid": "impact-drive-local",
+  "version": 1
+}

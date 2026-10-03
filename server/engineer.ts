@@ -149,16 +149,16 @@ function describeGrounding(records: EvidenceRecord[], mission?: MissionSummary, 
   const sourceText = records.map(({ claim }) => claim).join(" ");
   const contextText = [
     mission && "Fictional mission: " + mission.selectedRoute + " route. " + mission.feedback,
-    telemetry && "Simulated snapshot " + telemetry.stepId + " (" + telemetry.status + ") at " + telemetry.timestamp + ". Prepared signals: " + describeTelemetrySignals(telemetry) + ".",
+    telemetry && "Simulated demo snapshot " + telemetry.stepId + " (" + telemetry.status + ") at " + telemetry.timestamp + ". Prepared signals: " + describeTelemetrySignals(telemetry) + ".",
   ].filter(Boolean).join(" ");
   const limitations = [...new Set(records.flatMap(({ limitations: notes }) => notes))];
   if (mission) limitations.push("Mission route and outcome are fictional game content, not AMF1 operations.");
-  if (telemetry) limitations.push("Telemetry values are simulated fixture data, not a live AMF1 feed.");
+  if (telemetry) limitations.push("Telemetry values are simulated demo data, not a live AMF1 feed or measured impact.");
   return { sourceText: sourceText || "No report record was retrieved for this question.", contextText, limitations };
 }
 
 function describeTelemetrySignals(telemetry: TelemetrySnapshot): string {
-  return telemetry.signals.map((signal) => signal.name + ": " + (signal.value === null ? "Unavailable" : signal.value + " " + signal.unit)).join("; ");
+  return telemetry.signals.map((signal) => signal.name + ": " + (signal.value === null ? "Unavailable" : signal.value) + " " + signal.unit).join("; ");
 }
 
 function isProviderAnswerGrounded(answer: string, records: EvidenceRecord[], mission?: MissionSummary, telemetry?: TelemetrySnapshot): boolean {
@@ -179,7 +179,7 @@ function preparedResponse(records: EvidenceRecord[], mission?: MissionSummary, t
   const explanation = [
     records.map(({ claim }) => claim).join(" "),
     mission && mission.selectedRoute + ": " + mission.feedback,
-    telemetry && "Snapshot " + telemetry.stepId + " is " + telemetry.status + ". " + describeTelemetrySignals(telemetry) + ".",
+    telemetry && "Simulated demo snapshot " + telemetry.stepId + " is " + telemetry.status + ". " + describeTelemetrySignals(telemetry) + ".",
   ].filter(Boolean).join(" ");
   const detail = detailLevel === "detailed" ? records.map((record) => {
     return " Source: " + record.source.title + " (" + (record.reportingPeriod ?? "reporting period not stated") + ")" + (record.source.location ? ", " + record.source.location : "") + ". " + record.limitations.join(" ");
@@ -242,6 +242,9 @@ export async function createEngineerResponse(input: unknown, dependencies: Engin
 
   if (request.category === "mission") {
     return preparedResponse([], context.missionSummary, undefined, undefined, request.detailLevel);
+  }
+  if (request.category === "telemetry") {
+    return preparedResponse([], undefined, context.telemetrySnapshot, undefined, request.detailLevel);
   }
 
   if (dependencies.provider) {

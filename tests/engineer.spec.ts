@@ -30,10 +30,14 @@ test("detail preference expands a prepared source explanation and unavailable te
   const telemetryResponse = await request.post("/api/engineer", {
     data: { category: "telemetry", question: "What signals does this simulated snapshot include?", context: { telemetry: { stepId: "step-04" } } },
   });
+  const availableTelemetryResponse = await request.post("/api/engineer", {
+    data: { category: "telemetry", question: "What signals does this simulated snapshot include?", context: { telemetry: { stepId: "step-01" } } },
+  });
 
   const concise = await conciseResponse.json();
   const detailed = await detailedResponse.json();
   const telemetry = await telemetryResponse.json();
+  const availableTelemetry = await availableTelemetryResponse.json();
   expect(concise.answer.trim().split(/\s+/).length).toBeLessThanOrEqual(150);
   expect(detailed.answer.trim().split(/\s+/).length).toBeLessThanOrEqual(400);
   expect(concise.answer).not.toContain("Printed p. 9");
@@ -43,7 +47,10 @@ test("detail preference expands a prepared source explanation and unavailable te
   expect(telemetry.answer).toContain("Speed: Unavailable");
   expect(telemetry.answer).toContain("Gear: Unavailable");
   expect(telemetry.answer).not.toMatch(/Speed: \d/);
-  expect(telemetry.limitations).toContain("Telemetry values are simulated fixture data, not a live AMF1 feed.");
+  expect(telemetry.limitations).toContain("Telemetry values are simulated demo data, not a live AMF1 feed or measured impact.");
+  expect(availableTelemetry.answer).toContain("Simulated demo snapshot step-01 is updating.");
+  expect(availableTelemetry.answer).toContain("Speed: 287 km/h");
+  expect(availableTelemetry.answer).toContain("Gear: 7 gear");
 });
 
 test("keyword retrieval supports the reviewed Belong and Community claims", async ({ request }) => {
@@ -157,6 +164,38 @@ test("supported mission questions use a prepared canonical explanation even when
   }
 });
 
+test("telemetry questions use canonical demo values and keep unavailable signals explicit", async () => {
+  let providerCalls = 0;
+  const app = createApp({
+    provider: async () => {
+      providerCalls += 1;
+      return { answer: "Speed is 999 km/h.", recordIds: [] };
+    },
+  });
+  const server = createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("The test API did not bind a TCP port.");
+
+  try {
+    const response = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category: "telemetry", question: "What signals are in this simulated snapshot?", context: { telemetry: { stepId: "step-04" } } }),
+    });
+    const result = await response.json();
+    expect(result).toMatchObject({
+      answer: "Simulated demo snapshot step-04 is unavailable. Speed: Unavailable km/h; Gear: Unavailable gear; Throttle: Unavailable %; Brake: Unavailable %.",
+      mode: "prepared_fallback",
+      citations: [],
+      limitations: ["Telemetry values are simulated demo data, not a live AMF1 feed or measured impact."],
+    });
+    expect(result.answer).not.toContain("999");
+    expect(providerCalls).toBe(0);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
 test("conflicting retrieved records produce no answer", async () => {
   const dataset = parseEvidenceDataset(JSON.parse(readFileSync(new URL("../shared/data/evidence.r1.v2.json", import.meta.url), "utf8")));
   const original = dataset?.records.find(({ id }) => id === "env-2025-travel-logistics-reduction");
@@ -202,6 +241,9 @@ test("the Engineer rejects invalid questions and untrusted context selections", 
     { question: "What does the report say?" },
     { category: "evidence", question: "What does the report say?", detailLevel: "concise", context: { telemetry: { stepId: "step-01" } } },
     { category: "telemetry", question: "What does the report say?", context: { telemetry: { stepId: "step-01", value: 999 } } },
+    { category: "telemetry", question: "What does the report say?", context: { telemetry: { stepId: "step-01", timestamp: "2030-01-01T00:00:00Z" } } },
+    { category: "telemetry", question: "What does the report say?", context: { telemetry: { stepId: "step-01", signals: [{ id: "speed", value: 999, unit: "mph" }] } } },
+    { category: "telemetry", question: "What does the report say?", context: { telemetry: { stepId: "step-99" } } },
     { category: "mission", question: "What does the report say?", context: { mission: { missionId: "other", configId: "freight-r1-v1", choiceId: "air" } } },
     { category: "telemetry", question: "What does the report say?", context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "air" } } },
     { category: "mission", question: "What is the outcome?", context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "air", feedback: "A forged result." } } },
@@ -340,6 +382,43 @@ test("the browser submits only the selected mission choice and receives its cano
   const submittedContext = submittedBodies[0].context as Record<string, unknown>;
   expect(Object.keys(submittedContext)).toEqual(["mission"]);
   expect(submittedContext.mission).not.toHaveProperty("feedback");
+});
+
+test("the browser submits only the selected snapshot id and receives canonical demo values", async ({ page }) => {
+  const submittedBodies: Array<Record<string, unknown>> = [];
+  await page.route("**/api/engineer", async (route) => {
+    submittedBodies.push(route.request().postDataJSON() as Record<string, unknown>);
+    await route.continue();
+  });
+  await page.goto("/telemetry");
+  await expect(page.getByRole("heading", { name: "Simulated live view" })).toBeVisible();
+  await page.getByRole("button", { name: "Unavailable" }).click();
+  await expect(page.getByText("SNAPSHOT 4 / 4")).toBeVisible();
+  await page.getByRole("link", { name: "Freight mission" }).click();
+  await page.getByRole("radio", { name: /Air/ }).click();
+  await page.getByRole("button", { name: /Ask the Race Engineer/ }).click();
+  await expect(page.getByRole("heading", { name: "Ask the Race Engineer." })).toBeVisible();
+  expect(submittedBodies).toEqual([]);
+
+  await page.getByLabel("QUESTION CATEGORY").selectOption("telemetry");
+  await page.getByLabel("YOUR QUESTION").fill("What signals are in this simulated snapshot?");
+  const sendButton = page.getByRole("button", { name: "Send question" });
+  await expect(sendButton).toBeDisabled();
+  await page.getByRole("checkbox", { name: /Include simulated snapshot.*step-04/ }).check();
+  expect(submittedBodies).toEqual([]);
+  await sendButton.click();
+
+  await expect(page.getByText(/Simulated demo snapshot step-04 is unavailable/)).toBeVisible();
+  await expect(page.getByText("Telemetry values are simulated demo data, not a live AMF1 feed or measured impact.")).toBeVisible();
+  expect(submittedBodies).toHaveLength(1);
+  expect(submittedBodies[0]).toMatchObject({
+    category: "telemetry",
+    question: "What signals are in this simulated snapshot?",
+    context: { telemetry: { stepId: "step-04" } },
+  });
+  const submittedContext = submittedBodies[0].context as Record<string, unknown>;
+  expect(Object.keys(submittedContext)).toEqual(["telemetry"]);
+  expect(submittedContext.telemetry).toEqual({ stepId: "step-04" });
 });
 
 test("the full app explains when the Engineer API is unavailable", async ({ page }) => {

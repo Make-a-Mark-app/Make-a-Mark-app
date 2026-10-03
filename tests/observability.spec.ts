@@ -6,7 +6,7 @@ test("API metrics use low-cardinality labels and do not contain question text or
   test.skip(Boolean(process.env.PLAYWRIGHT_EXTERNAL), "The metrics endpoint stays private to the Compose network.");
   const privateQuestion = "Is this private prompt text 918273 supported?";
   const response = await request.post("/api/engineer", {
-    data: { question: privateQuestion, context: { telemetry: { stepId: "step-04" } } },
+    data: { category: "telemetry", question: privateQuestion, context: { telemetry: { stepId: "step-04" } } },
   });
   expect(response.ok()).toBeTruthy();
 

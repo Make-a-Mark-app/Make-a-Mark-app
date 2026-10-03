@@ -6,6 +6,7 @@ import {
 import { evidenceRecords, illustrativeSamples, routeOptions, telemetrySnapshots, type EvidenceRecord, type IllustrativeSample, type RouteId } from "./data";
 import { EMPTY_DISCOVERY, hasDiscovery, parseDiscoveryRecap, type DiscoveryRecap } from "../shared/contracts/discovery";
 import { createMissionOutcome } from "../shared/contracts/mission";
+import type { EngineerCategory } from "../shared/contracts/engineer";
 import { evidenceTopicTags, lookupEvidence, normalizeLiteralSearchText } from "../shared/contracts/evidence";
 import { missionScenario } from "../shared/mission";
 
@@ -18,6 +19,7 @@ type EngineerReply = {
   citations: Array<{ recordId: string; title: string; sourceTitle: string; sourceUrl: string; reportingPeriod: string | null; sourceLocation: string | null }>;
   relatedRecordIds: string[];
   mode: "grounded_ai" | "prepared_fallback" | "no_answer";
+  modeLabel: string;
 };
 type LibraryRecord = EvidenceRecord | IllustrativeSample;
 type EvidenceView = "reported" | "illustrative";
@@ -91,6 +93,7 @@ function App() {
     return findLibraryRecord(id);
   });
   const [question, setQuestion] = useState("");
+  const [engineerCategory, setEngineerCategory] = useState<EngineerCategory>("evidence");
   const [reply, setReply] = useState<EngineerReply | null>(null);
   const [asking, setAsking] = useState(false);
   const [detailLevel, setDetailLevel] = useState<"concise" | "detailed">("concise");
@@ -98,6 +101,9 @@ function App() {
   const [includeTelemetryContext, setIncludeTelemetryContext] = useState(false);
   const [status, setStatus] = useState("");
   const [telemetryIndex, setTelemetryIndex] = useState(0);
+  const engineerSubmissionReady = engineerCategory === "evidence"
+    || (engineerCategory === "mission" && includeMissionContext && Boolean(discovery.routeChoice))
+    || (engineerCategory === "telemetry" && includeTelemetryContext);
 
   useEffect(() => {
     try {
@@ -201,19 +207,20 @@ function App() {
 
   async function askEngineer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!question.trim()) return;
+    if (!question.trim() || !engineerSubmissionReady) return;
     setAsking(true);
     setReply(null);
     try {
       const response = await fetch("/api/engineer", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          category: engineerCategory,
           question: question.trim(),
           detailLevel,
-          ...((includeMissionContext && discovery.routeChoice) || includeTelemetryContext ? {
+          ...((engineerCategory === "mission" && includeMissionContext && discovery.routeChoice) || (engineerCategory === "telemetry" && includeTelemetryContext) ? {
             context: {
-              ...(includeMissionContext && discovery.routeChoice && { mission: { missionId: missionScenario.missionId, configId: missionScenario.configId, choiceId: discovery.routeChoice } }),
-              ...(includeTelemetryContext && { telemetry: { stepId: telemetrySnapshots[telemetryIndex].stepId } }),
+              ...(engineerCategory === "mission" && includeMissionContext && discovery.routeChoice && { mission: { missionId: missionScenario.missionId, configId: missionScenario.configId, choiceId: discovery.routeChoice } }),
+              ...(engineerCategory === "telemetry" && includeTelemetryContext && { telemetry: { stepId: telemetrySnapshots[telemetryIndex].stepId } }),
             },
           } : {}),
         }),
@@ -225,7 +232,7 @@ function App() {
         answer: "The Race Engineer API is unavailable, so I could not retrieve an approved record or selected-context explanation.",
         whatSourceStates: "No source record was retrieved for this request.",
         whatItMeans: "Try again when the local API is available. Unsupported questions are not answered from general model knowledge.",
-        limitations: ["API unavailable; no evidence or context was retrieved."], citations: [], relatedRecordIds: [], mode: "prepared_fallback",
+        limitations: ["API unavailable; no evidence or context was retrieved."], citations: [], relatedRecordIds: [], mode: "prepared_fallback", modeLabel: "API unavailable",
       });
     } finally { setAsking(false); }
   }
@@ -258,7 +265,7 @@ function App() {
         {screen === "mission" && <Mission discovery={discovery} onChoose={chooseRoute} onFinish={finishMission} onRetry={retryMission} onNavigate={navigate} status={status} />}
         {screen === "library" && <Library search={search} setSearch={setSearch} topic={topic} setTopic={setTopic} topicTag={topicTag} setTopicTag={setTopicTag} period={period} setPeriod={setPeriod} view={evidenceView} setView={setEvidenceView} records={visibleRecords} onOpen={openRecord} />}
         {screen === "telemetry" && <Telemetry index={telemetryIndex} onSelect={setTelemetryIndex} onAdvance={() => setTelemetryIndex((index) => Math.min(index + 1, telemetrySnapshots.length - 1))} />}
-        {screen === "engineer" && <Engineer question={question} setQuestion={setQuestion} reply={reply} asking={asking} onSubmit={askEngineer} currentChoice={discovery.routeChoice} detailLevel={detailLevel} setDetailLevel={setDetailLevel} includeMissionContext={includeMissionContext} setIncludeMissionContext={setIncludeMissionContext} includeTelemetryContext={includeTelemetryContext} setIncludeTelemetryContext={setIncludeTelemetryContext} telemetrySnapshot={telemetrySnapshots[telemetryIndex]} />}
+        {screen === "engineer" && <Engineer question={question} setQuestion={setQuestion} category={engineerCategory} setCategory={setEngineerCategory} canSubmit={engineerSubmissionReady} reply={reply} asking={asking} onSubmit={askEngineer} currentChoice={discovery.routeChoice} detailLevel={detailLevel} setDetailLevel={setDetailLevel} includeMissionContext={includeMissionContext} setIncludeMissionContext={setIncludeMissionContext} includeTelemetryContext={includeTelemetryContext} setIncludeTelemetryContext={setIncludeTelemetryContext} telemetrySnapshot={telemetrySnapshots[telemetryIndex]} />}
         {screen === "summary" && <Summary discovery={discovery} onNavigate={navigate} onClear={clearDiscoveries} status={status} />}
         {screen === "about" && <About onNavigate={navigate} />}
       </main>
@@ -457,9 +464,12 @@ function Library({ search, setSearch, topic, setTopic, topicTag, setTopicTag, pe
   );
 }
 
-function Engineer({ question, setQuestion, reply, asking, onSubmit, currentChoice, detailLevel, setDetailLevel, includeMissionContext, setIncludeMissionContext, includeTelemetryContext, setIncludeTelemetryContext, telemetrySnapshot }: {
+function Engineer({ question, setQuestion, category, setCategory, canSubmit, reply, asking, onSubmit, currentChoice, detailLevel, setDetailLevel, includeMissionContext, setIncludeMissionContext, includeTelemetryContext, setIncludeTelemetryContext, telemetrySnapshot }: {
   question: string;
   setQuestion: (value: string) => void;
+  category: EngineerCategory;
+  setCategory: (value: EngineerCategory) => void;
+  canSubmit: boolean;
   reply: EngineerReply | null;
   asking: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -473,9 +483,7 @@ function Engineer({ question, setQuestion, reply, asking, onSubmit, currentChoic
   telemetrySnapshot: typeof telemetrySnapshots[number];
 }) {
   const sampleQuestions = ["What is the travel and logistics emissions reduction?", "What did the Aleto cohort feel about its professional network?", "How many students engaged during Make A Mark Week?"];
-  const modeLabel = reply?.mode === "grounded_ai" ? "GROUNDED EXPLANATION · CITATIONS VALIDATED"
-    : reply?.mode === "no_answer" ? "NO ANSWER · LIMITED TO APPROVED CONTEXT"
-      : "PREPARED RESPONSE · BOUNDED CONTEXT";
+  const modeLabel = reply?.modeLabel ?? "";
   return (
     <div className="content-page engineer-page">
       <div className="engineer-header"><span className="engineer-emblem"><Sparkles size={20} /></span><div><p className="overline"><span /> OPTIONAL EXPLANATION</p><h1>Ask the Race Engineer.</h1><p>Ask about source-reviewed records or context you choose to include. Unsupported factual questions receive a clear limitation.</p></div></div>
@@ -485,16 +493,22 @@ function Engineer({ question, setQuestion, reply, asking, onSubmit, currentChoic
         {!reply && <div className="question-suggestions"><span>TRY A QUESTION</span>{sampleQuestions.map((sample) => <button key={sample} onClick={() => setQuestion(sample)}>{sample}<ArrowUpRight size={14} /></button>)}</div>}
         {reply && <div className="engineer-answer" aria-live="polite"><div className="answer-mode"><span /> {modeLabel}</div><p className="answer-text">{reply.answer}</p><div className="answer-detail"><span>{reply.mode === "no_answer" ? "GROUNDING CHECK" : reply.citations.length ? "WHAT THE SOURCE SAYS" : "WHAT THE SELECTED CONTEXT SAYS"}</span><p>{reply.whatSourceStates}</p></div><div className="answer-detail"><span>WHAT IT MEANS</span><p>{reply.whatItMeans}</p></div>{reply.citations.length > 0 && <div className="answer-detail"><span>CITED RECORDS</span><ul className="engineer-citations">{reply.citations.map((citation) => <li key={citation.recordId}><a href={citation.sourceUrl} target="_blank" rel="noreferrer">{citation.title} · {citation.sourceTitle}</a><small>{citation.reportingPeriod ?? "Reporting period not stated"}{citation.sourceLocation ? " · " + citation.sourceLocation : ""}</small></li>)}</ul></div>}{reply.limitations.map((limitation) => <div className="limitation-note" key={limitation}><Info size={14} />{limitation}</div>)}</div>}
         <form className="question-form" onSubmit={onSubmit}>
+          <label htmlFor="engineer-category">QUESTION CATEGORY</label>
+          <select id="engineer-category" value={category} onChange={(event) => {
+            setCategory(event.target.value as EngineerCategory);
+            setIncludeMissionContext(false);
+            setIncludeTelemetryContext(false);
+          }}><option value="evidence">Reviewed evidence</option><option value="mission">Fictional mission</option><option value="telemetry">Simulated snapshot</option></select>
           <label htmlFor="engineer-question">YOUR QUESTION</label>
-          <div><input id="engineer-question" value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={500} placeholder="Ask about a report record or selected context…" /><button type="submit" disabled={asking || !question.trim()} aria-label="Send question">{asking ? <span className="spinner" /> : <ArrowRight size={18} />}</button></div>
+          <div><input id="engineer-question" value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={500} placeholder="Ask about a report record or selected context…" /><button type="submit" disabled={asking || !question.trim() || !canSubmit} aria-label="Send question">{asking ? <span className="spinner" /> : <ArrowRight size={18} />}</button></div>
           <small>Up to 500 characters. Questions are not saved on the server.</small>
           <label className="detail-level-label" htmlFor="engineer-detail">ANSWER DETAIL</label>
           <select id="engineer-detail" value={detailLevel} onChange={(event) => setDetailLevel(event.target.value as "concise" | "detailed")}><option value="concise">Concise</option><option value="detailed">Detailed</option></select>
-          <fieldset className="engineer-context-options">
-            <legend>OPTIONAL CONTEXT · SENT ONLY WHEN SELECTED</legend>
-            <label><input type="checkbox" checked={includeMissionContext} disabled={!currentChoice} onChange={(event) => setIncludeMissionContext(event.target.checked)} /> Include fictional Mission scenario {currentChoice ? "· " + routeOptions.find((route) => route.id === currentChoice)?.name : "· choose a route first"}</label>
-            <label><input type="checkbox" checked={includeTelemetryContext} onChange={(event) => setIncludeTelemetryContext(event.target.checked)} /> Include simulated snapshot · {telemetrySnapshot.stepId} ({telemetrySnapshot.status})</label>
-          </fieldset>
+          {category !== "evidence" && <fieldset className="engineer-context-options">
+            <legend>SELECTED CONTEXT · SENT ONLY WHEN SUBMITTED</legend>
+            {category === "mission" && <label><input type="checkbox" checked={includeMissionContext} disabled={!currentChoice} onChange={(event) => setIncludeMissionContext(event.target.checked)} /> Include fictional Mission scenario {currentChoice ? "· " + routeOptions.find((route) => route.id === currentChoice)?.name : "· choose a route first"}</label>}
+            {category === "telemetry" && <label><input type="checkbox" checked={includeTelemetryContext} onChange={(event) => setIncludeTelemetryContext(event.target.checked)} /> Include simulated snapshot · {telemetrySnapshot.stepId} ({telemetrySnapshot.status})</label>}
+          </fieldset>}
         </form>
       </section><aside className="engineer-side"><div className="current-context"><span>MISSION CONTEXT</span><h2>Freight choices</h2><p>{currentChoice ? "Selected route: " + routeOptions.find((r) => r.id === currentChoice)?.name + ". It is sent only if you select its context above." : "Choose a route to make fictional Mission context available."}</p><div className="context-rule" /><span className="context-mark">01 <b>/</b> 01</span></div><div className="grounding-card"><ShieldCheck size={18} /><h3>Evidence first.</h3><p>Only reviewed records can be cited as reported impact. Mission and simulated snapshot details stay separate.</p><span>NO UNSOURCED FACTS</span></div></aside></div>
     </div>

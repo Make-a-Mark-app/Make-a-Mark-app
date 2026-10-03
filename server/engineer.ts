@@ -21,6 +21,7 @@ export type EngineerResponse = {
   citations: EngineerCitation[];
   relatedRecordIds: string[];
   mode: "grounded_ai" | "prepared_fallback" | "no_answer";
+  modeLabel: "Grounded explanation · citations validated" | "Prepared answer" | "No answer";
 };
 
 export type EngineerProviderInput = {
@@ -28,11 +29,13 @@ export type EngineerProviderInput = {
   question: string;
   detailLevel: "concise" | "detailed";
   records: EvidenceRecord[];
-  missionSummary?: { title: string; selectedRoute: string; feedback: string };
+  missionSummary?: MissionSummary;
   telemetrySnapshot?: TelemetrySnapshot;
 };
 
 export type EngineerProvider = (input: EngineerProviderInput) => Promise<unknown>;
+
+type MissionSummary = { title: string; selectedRoute: string; feedback: string };
 
 export type EngineerDependencies = {
   records: EvidenceRecord[];
@@ -64,9 +67,9 @@ function retrieveRecords(question: string, records: EvidenceRecord[]): EvidenceR
   if (!terms.length) return [];
   const exactTitleMatches = lookupEvidence(records, { query: terms.join(" "), limit: 10 })
     .filter((record) => normalizeLiteralSearchText(record.title).split(" ").filter((term) => !stopWords.has(term)).join(" ") === terms.join(" "));
-  if (exactTitleMatches.length) return exactTitleMatches.slice(0, 3);
+  if (exactTitleMatches.length) return exactTitleMatches.slice(0, 5);
   const exactMatches = lookupEvidence(records, { query: terms.join(" "), limit: 10 });
-  if (exactMatches.length) return exactMatches.slice(0, 3);
+  if (exactMatches.length) return exactMatches.slice(0, 5);
   const scores = new Map<string, { record: EvidenceRecord; score: number }>();
   for (const term of terms) {
     for (const record of lookupEvidence(records, { query: term, limit: 10 })) {
@@ -78,11 +81,11 @@ function retrieveRecords(question: string, records: EvidenceRecord[]): EvidenceR
   return [...scores.values()]
     .filter(({ score }) => hasSufficientKeywordCoverage(terms.length, score))
     .sort((left, right) => right.score - left.score || left.record.id.localeCompare(right.record.id, "en"))
-    .slice(0, 3)
+    .slice(0, 5)
     .map(({ record }) => record);
 }
 
-function selectedContextSupportsQuestion(question: string, mission?: EngineerProviderInput["missionSummary"], telemetry?: TelemetrySnapshot): boolean {
+function selectedContextSupportsQuestion(question: string, mission?: MissionSummary, telemetry?: TelemetrySnapshot): boolean {
   const terms = [...new Set(tokens(question).filter((term) => !stopWords.has(term)))];
   if (!terms.length) return false;
   const matchesContext = (context: string): boolean => {
@@ -97,7 +100,7 @@ function selectedContextSupportsQuestion(question: string, mission?: EngineerPro
 }
 
 function resolveContext(request: EngineerRequest, dependencies: EngineerDependencies) {
-  let missionSummary: EngineerProviderInput["missionSummary"];
+  let missionSummary: MissionSummary | undefined;
   if (request.context?.mission) {
     const selection = request.context.mission;
     if (selection.missionId !== dependencies.mission.missionId || selection.configId !== dependencies.mission.configId) return null;
@@ -126,7 +129,23 @@ function citationsFor(records: EvidenceRecord[]): EngineerCitation[] {
   }));
 }
 
-function describeGrounding(records: EvidenceRecord[], mission?: EngineerProviderInput["missionSummary"], telemetry?: TelemetrySnapshot) {
+function recordsConflict(records: EvidenceRecord[]): boolean {
+  const claimsByScope = new Map<string, Set<string>>();
+  for (const record of records) {
+    const scope = [record.topicTag, record.reportingPeriod ?? ""].join("|");
+    const claims = claimsByScope.get(scope) ?? new Set<string>();
+    claims.add([
+      normalizeLiteralSearchText(record.claim),
+      String(record.value ?? ""),
+      normalizeLiteralSearchText(record.unit ?? ""),
+    ].join("|"));
+    claimsByScope.set(scope, claims);
+    if (claims.size > 1) return true;
+  }
+  return false;
+}
+
+function describeGrounding(records: EvidenceRecord[], mission?: MissionSummary, telemetry?: TelemetrySnapshot) {
   const sourceText = records.map(({ claim }) => claim).join(" ");
   const contextText = [
     mission && "Fictional mission: " + mission.selectedRoute + " route. " + mission.feedback,
@@ -142,7 +161,7 @@ function describeTelemetrySignals(telemetry: TelemetrySnapshot): string {
   return telemetry.signals.map((signal) => signal.name + ": " + (signal.value === null ? "Unavailable" : signal.value + " " + signal.unit)).join("; ");
 }
 
-function isProviderAnswerGrounded(answer: string, records: EvidenceRecord[], mission?: EngineerProviderInput["missionSummary"], telemetry?: TelemetrySnapshot): boolean {
+function isProviderAnswerGrounded(answer: string, records: EvidenceRecord[], mission?: MissionSummary, telemetry?: TelemetrySnapshot): boolean {
   const sourceText = records.flatMap((record) => [
     record.id, record.title, record.topic, record.claim, record.reviewNote, String(record.value ?? ""), record.valueDisplay ?? "", record.unit ?? "",
     record.reportingPeriod ?? "", record.source.title, record.source.edition, record.source.location ?? "", ...record.limitations,
@@ -155,7 +174,7 @@ function isProviderAnswerGrounded(answer: string, records: EvidenceRecord[], mis
   return tokens(answer).every((term) => allowedTerms.has(term));
 }
 
-function preparedResponse(records: EvidenceRecord[], mission?: EngineerProviderInput["missionSummary"], telemetry?: TelemetrySnapshot, providerIssue?: "unavailable" | "invalid", detailLevel: "concise" | "detailed" = "concise"): EngineerResponse {
+function preparedResponse(records: EvidenceRecord[], mission?: MissionSummary, telemetry?: TelemetrySnapshot, providerIssue?: "unavailable" | "invalid", detailLevel: "concise" | "detailed" = "concise"): EngineerResponse {
   const grounding = describeGrounding(records, mission, telemetry);
   const explanation = [
     records.map(({ claim }) => claim).join(" "),
@@ -166,23 +185,34 @@ function preparedResponse(records: EvidenceRecord[], mission?: EngineerProviderI
     return " Source: " + record.source.title + " (" + (record.reportingPeriod ?? "reporting period not stated") + ")" + (record.source.location ? ", " + record.source.location : "") + ". " + record.limitations.join(" ");
   }).join(" ") : "";
   return {
-    answer: explanation + detail,
+    answer: limitWords(explanation + detail, detailLevel === "detailed" ? 400 : 150),
     whatSourceStates: [grounding.sourceText, grounding.contextText].filter(Boolean).join(" "),
     whatItMeans: records.flatMap(({ limitations }) => limitations).join(" ") || grounding.contextText || "This answer uses only the selected fictional context.",
     limitations: [...grounding.limitations, ...(providerIssue === "unavailable" ? ["The optional explanation provider is unavailable; this prepared response uses only the selected context and reviewed records."] : []), ...(providerIssue === "invalid" ? ["The provider response could not be grounded in the selected records and context, so it was not used."] : [])],
     citations: citationsFor(records),
     relatedRecordIds: records.map(({ id }) => id),
     mode: "prepared_fallback",
+    modeLabel: "Prepared answer",
   };
 }
 
-function noAnswer(): EngineerResponse {
+function noAnswer(reason: "unsupported" | "conflict" | "category_mismatch" = "unsupported"): EngineerResponse {
+  const conflict = reason === "conflict";
+  const categoryMismatch = reason === "category_mismatch";
   return {
     answer: "Not enough evidence in the reviewed records or selected context to support an answer.",
-    whatSourceStates: "No matching reviewed record or selected context was available.",
-    whatItMeans: "Try asking about a source-reviewed record, or choose mission or simulated snapshot context to include.",
-    limitations: ["This prototype does not answer from general model knowledge."],
-    citations: [], relatedRecordIds: [], mode: "no_answer",
+    whatSourceStates: conflict
+      ? "The retrieved records make different claims for the same topic and reporting period."
+      : categoryMismatch
+        ? "No matching claim was found within the selected category and context."
+        : "No matching reviewed record or selected context was available.",
+    whatItMeans: conflict
+      ? "The available records do not resolve to one consistent claim, so this prototype cannot choose an answer."
+      : categoryMismatch
+        ? "This question is not supported by the selected category or context. Choose a matching question category and try again."
+        : "Try asking about a source-reviewed record, or choose mission or simulated snapshot context to include.",
+    limitations: ["This prototype does not answer from general model knowledge.", ...(conflict ? ["Conflicting reviewed records were not used to produce an answer."] : [])],
+    citations: [], relatedRecordIds: [], mode: "no_answer", modeLabel: "No answer",
   };
 }
 
@@ -190,8 +220,13 @@ function parseProviderOutput(value: unknown, allowedIds: Set<string>): { answer:
   if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
   const result = value as Record<string, unknown>;
   if (Object.keys(result).some((key) => !["answer", "recordIds"].includes(key))) return null;
-  if (typeof result.answer !== "string" || !result.answer.trim() || result.answer.length > 1500 || !Array.isArray(result.recordIds) || result.recordIds.length > 3 || !result.recordIds.every((id) => typeof id === "string" && id.length <= 100)) return null;
+  if (typeof result.answer !== "string" || !result.answer.trim() || result.answer.length > 1500 || !Array.isArray(result.recordIds) || result.recordIds.length > 5 || !result.recordIds.every((id) => typeof id === "string" && id.length <= 100)) return null;
   return { answer: result.answer.trim(), recordIds: [...new Set(result.recordIds.filter((id): id is string => typeof id === "string" && allowedIds.has(id)))] };
+}
+
+function limitWords(value: string, limit: number): string {
+  const words = value.trim().split(/\s+/);
+  return words.length > limit ? words.slice(0, limit).join(" ") : value;
 }
 
 export async function createEngineerResponse(input: unknown, dependencies: EngineerDependencies): Promise<EngineerResponse | null> {
@@ -199,8 +234,11 @@ export async function createEngineerResponse(input: unknown, dependencies: Engin
   if (!request) return null;
   const context = resolveContext(request, dependencies);
   if (!context) return null;
-  const records = retrieveRecords(request.question, dependencies.records);
-  if (!records.length && !selectedContextSupportsQuestion(request.question, context.missionSummary, context.telemetrySnapshot)) return noAnswer();
+  const records = request.category === "evidence" ? retrieveRecords(request.question, dependencies.records) : [];
+  if (recordsConflict(records)) return noAnswer("conflict");
+  if (!records.length && !selectedContextSupportsQuestion(request.question, context.missionSummary, context.telemetrySnapshot)) {
+    return noAnswer(request.category === "evidence" ? "unsupported" : "category_mismatch");
+  }
 
   if (dependencies.provider) {
     let providerIssue: "unavailable" | "invalid" = "invalid";
@@ -216,14 +254,15 @@ export async function createEngineerResponse(input: unknown, dependencies: Engin
       const result = parseProviderOutput(await dependencies.provider(providerInput), new Set(records.map(({ id }) => id)));
       if (result && (records.length === 0 || result.recordIds.length > 0)) {
         const citedRecords = records.filter(({ id }) => result.recordIds.includes(id));
-        if (!isProviderAnswerGrounded(result.answer, citedRecords, context.missionSummary, context.telemetrySnapshot)) {
+        const answer = limitWords(result.answer, request.detailLevel === "detailed" ? 400 : 150);
+        if (!isProviderAnswerGrounded(answer, citedRecords, context.missionSummary, context.telemetrySnapshot)) {
           return preparedResponse(records, context.missionSummary, context.telemetrySnapshot, "invalid", request.detailLevel);
         }
         const grounding = describeGrounding(citedRecords, context.missionSummary, context.telemetrySnapshot);
         return {
-          answer: result.answer, whatSourceStates: [grounding.sourceText, grounding.contextText].filter(Boolean).join(" "),
-          whatItMeans: result.answer, limitations: grounding.limitations, citations: citationsFor(citedRecords),
-          relatedRecordIds: citedRecords.map(({ id }) => id), mode: "grounded_ai",
+          answer, whatSourceStates: [grounding.sourceText, grounding.contextText].filter(Boolean).join(" "),
+          whatItMeans: answer, limitations: grounding.limitations, citations: citationsFor(citedRecords),
+          relatedRecordIds: citedRecords.map(({ id }) => id), mode: "grounded_ai", modeLabel: "Grounded explanation · citations validated",
         };
       }
     } catch {
@@ -232,37 +271,4 @@ export async function createEngineerResponse(input: unknown, dependencies: Engin
     return preparedResponse(records, context.missionSummary, context.telemetrySnapshot, providerIssue, request.detailLevel);
   }
   return preparedResponse(records, context.missionSummary, context.telemetrySnapshot, undefined, request.detailLevel);
-}
-
-export function createHttpEngineerProvider(endpoint: string, apiKey?: string): EngineerProvider {
-  return async (input) => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(apiKey && { Authorization: "Bearer " + apiKey }) },
-        body: JSON.stringify(input),
-        signal: controller.signal,
-        redirect: "error",
-      });
-      if (!response.ok) throw new Error("Provider request failed");
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("Provider returned no response body");
-      const chunks: Uint8Array[] = [];
-      let byteLength = 0;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        byteLength += value.byteLength;
-        if (byteLength > 16_384) {
-          await reader.cancel();
-          throw new Error("Provider response exceeded its size limit");
-        }
-        chunks.push(value);
-      }
-      const responseText = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString("utf8");
-      return JSON.parse(responseText) as unknown;
-    } finally { clearTimeout(timeout); }
-  };
 }

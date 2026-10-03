@@ -1,10 +1,10 @@
 import express, { type Express } from "express";
 import { readFileSync } from "node:fs";
-import { evidenceTopicTags, lookupEvidence, parseEvidenceDataset, type EvidenceTopicTag } from "../shared/contracts/evidence.js";
+import { evidenceTopicTags, lookupEvidence, parseEvidenceDataset, type EvidenceRecord, type EvidenceTopicTag } from "../shared/contracts/evidence.js";
 import { createMissionOutcome, parseMissionDefinition } from "../shared/contracts/mission.js";
 import { parseTelemetryDataset } from "../shared/contracts/telemetry.js";
 import { missionScenario } from "../shared/mission.js";
-import { createHttpEngineerProvider, createEngineerResponse, type EngineerProvider } from "./engineer.js";
+import { createEngineerResponse, type EngineerProvider } from "./engineer.js";
 import { localMetrics } from "./observability/metrics.js";
 
 const evidenceDataset = parseEvidenceDataset(JSON.parse(
@@ -14,9 +14,8 @@ const telemetryDataset = parseTelemetryDataset(JSON.parse(
   readFileSync(new URL("../shared/data/telemetry.r1.v2.json", import.meta.url), "utf8"),
 ));
 
-export function createApp(options: { provider?: EngineerProvider } = {}): Express {
+export function createApp(options: { provider?: EngineerProvider; engineerRecords?: EvidenceRecord[] } = {}): Express {
   const app = express();
-  const provider = options.provider ?? configuredProvider();
 
   app.use((request, response, next) => {
     const startedAt = process.hrtime.bigint();
@@ -43,7 +42,7 @@ export function createApp(options: { provider?: EngineerProvider } = {}): Expres
     next();
   });
 
-  app.use(express.json({ limit: "8kb" }));
+  app.use(express.json({ limit: "16kb" }));
 
   app.get("/metrics", (_request, response) => {
     response.type("text/plain; version=0.0.4; charset=utf-8").send(localMetrics.renderPrometheus());
@@ -117,10 +116,10 @@ export function createApp(options: { provider?: EngineerProvider } = {}): Expres
       return;
     }
     const result = await createEngineerResponse(request.body, {
-      records: evidenceDataset.records,
+      records: options.engineerRecords ?? evidenceDataset.records,
       mission: missionScenario,
       telemetry: telemetryDataset,
-      ...(provider && { provider }),
+      ...(options.provider && { provider: options.provider }),
     });
     if (!result) {
       localMetrics.recordValidationFailure("/api/engineer");
@@ -128,12 +127,21 @@ export function createApp(options: { provider?: EngineerProvider } = {}): Expres
       return;
     }
     response.locals.engineerMode = result.mode;
-    if (provider && result.mode === "prepared_fallback") {
-      response.locals.providerError = result.limitations.some((limitation) => limitation.includes("could not be grounded"))
-        ? "invalid_response"
-        : result.limitations.some((limitation) => limitation.includes("provider is unavailable")) ? "request_failed" : undefined;
-    }
     response.json(result);
+  });
+
+  app.use((error: unknown, _request: express.Request, response: express.Response, next: express.NextFunction) => {
+    if (response.headersSent) { next(error); return; }
+    const status = error && typeof error === "object" && "status" in error ? error.status : undefined;
+    if (status === 413) {
+      response.status(413).json({ error: "Engineer request body exceeds the 16KB limit." });
+      return;
+    }
+    if (error instanceof SyntaxError) {
+      response.status(400).json({ error: "Engineer request JSON is invalid." });
+      return;
+    }
+    next(error);
   });
 
   app.use(express.static("dist"));
@@ -141,16 +149,4 @@ export function createApp(options: { provider?: EngineerProvider } = {}): Expres
     response.sendFile("index.html", { root: "dist" }, (error) => error && next());
   });
   return app;
-}
-
-function configuredProvider(): EngineerProvider | undefined {
-  const endpoint = process.env.ENGINEER_PROVIDER_URL;
-  if (!endpoint) return undefined;
-  try {
-    const parsed = new URL(endpoint);
-    if (parsed.protocol !== "https:" || parsed.username || parsed.password) return undefined;
-    return createHttpEngineerProvider(parsed.href, process.env.ENGINEER_PROVIDER_API_KEY);
-  } catch {
-    return undefined;
-  }
 }

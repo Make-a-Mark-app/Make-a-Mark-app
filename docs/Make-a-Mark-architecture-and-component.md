@@ -380,9 +380,8 @@ There is no `postgres`, `pgvector`, `redis`, `ingest`, user-session, or model-se
 - Pin container image versions. Use the production Nginx image for a demo; keep Vite hot reload in a separate development override if needed.
 - Keep provider credentials in an ignored local `.env` or approved secret mechanism. Commit blank placeholders only. Pass secrets only to `api`.
 - Include health checks for web/API and observability services. Model-provider readiness is optional and must not mark the core app unavailable.
-- `docker compose down` preserves the named Grafana, Loki, Prometheus, source-log, and Alloy-position volumes.
-- For the default `cognizant-local` project, `docker compose -f deploy/local/compose.yaml down --volumes` removes only its five named observability volumes. It does not modify `.env`, source-reviewed files, browser `localStorage`, or the packaged demo fixture.
-- Clear browser Discovery data separately from `/summary` with **Clear my discoveries**. Advancing the fixture to its first step resets the live-style walkthrough.
+- Normal shutdown preserves observability state; a full reset removes only the current Compose project's observability state. Versioned sources and browser Discovery data remain separate. See the [local Compose runbook](../README.md#run-the-full-local-compose-stack) for commands, volume inventory, and the browser reset action.
+- Advancing the fixture to its first step resets the live-style walkthrough.
 
 ## Observability signals
 

@@ -5,6 +5,7 @@ import { createMissionOutcome, parseMissionDefinition } from "../shared/contract
 import { parseTelemetryDataset } from "../shared/contracts/telemetry.js";
 import { missionScenario } from "../shared/mission.js";
 import { createEngineerResponse, type EngineerProvider } from "./engineer.js";
+import type { ServiceLogWriter } from "./logging.js";
 import { localMetrics } from "./observability/metrics.js";
 
 const evidenceDataset = parseEvidenceDataset(JSON.parse(
@@ -14,7 +15,7 @@ const telemetryDataset = parseTelemetryDataset(JSON.parse(
   readFileSync(new URL("../shared/data/telemetry.r1.v2.json", import.meta.url), "utf8"),
 ));
 
-export function createApp(options: { provider?: EngineerProvider; engineerRecords?: EvidenceRecord[] } = {}): Express {
+export function createApp(options: { provider?: EngineerProvider; engineerRecords?: EvidenceRecord[]; logger?: ServiceLogWriter } = {}): Express {
   const app = express();
 
   app.use((request, response, next) => {
@@ -24,6 +25,7 @@ export function createApp(options: { provider?: EngineerProvider; engineerRecord
       const route = ["/api/health", "/api/mission", "/api/mission/outcome", "/api/evidence", "/api/telemetry", "/api/engineer", "/metrics"].includes(routePath) ? routePath : "other";
       const method = request.method === "GET" || request.method === "POST" ? request.method : "OTHER";
       const statusClass = Math.floor(response.statusCode / 100) + "xx";
+      const severity = response.statusCode >= 500 ? "error" : response.statusCode >= 400 ? "warn" : "info";
       const durationSeconds = Number(process.hrtime.bigint() - startedAt) / 1_000_000_000;
       localMetrics.recordRequest({ method, route, statusClass }, durationSeconds);
       if (route === "/api/engineer" && response.locals.engineerMode) {
@@ -31,12 +33,13 @@ export function createApp(options: { provider?: EngineerProvider; engineerRecord
         if (response.locals.providerError) localMetrics.recordProviderError(response.locals.providerError);
       }
       const entry = {
-        method, route, status_class: statusClass,
+        severity, method, route, status: statusClass,
         duration_ms: Math.round(durationSeconds * 1000),
         ...(response.locals.engineerMode && { response_mode: response.locals.engineerMode }),
         ...(response.locals.providerError && { dependency_error_category: response.locals.providerError }),
       };
-      process.stdout.write(JSON.stringify(entry) + "\n");
+      if (options.logger) options.logger.write(entry);
+      else process.stdout.write(JSON.stringify({ service: "api", environment: process.env.APP_ENV ?? "local", ...entry }) + "\n");
     });
     next();
   });

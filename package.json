@@ -8,6 +8,10 @@
     "build": "tsc -b && vite build",
     "test:e2e": "playwright test",
     "test:e2e:compose": "node scripts/test-compose-acceptance.mjs",
+    "test:e2e:tailnet": "node scripts/test-tailnet-acceptance.mjs",
+    "tailnet:up": "node scripts/tailnet-deploy.mjs up",
+    "tailnet:status": "node scripts/tailnet-deploy.mjs status",
+    "tailnet:down": "node scripts/tailnet-deploy.mjs down",
     "start": "tsx server/index.ts",
     "build:server": "tsc -p tsconfig.server.build.json",
     "preview": "vite preview --host 0.0.0.0"

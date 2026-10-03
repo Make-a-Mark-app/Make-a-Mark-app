@@ -41,9 +41,34 @@ cp .env.example .env
 docker compose -f deploy/local/compose.yaml up --build
 ```
 
-Open `http://localhost:8080`. The web/API health endpoint is `http://localhost:8080/api/health`; Grafana is bound to `http://127.0.0.1:3000` (default local login: `admin` / `admin`). Prometheus, Loki, API, and Alloy have no published host ports. Grafana includes a provisioned dashboard for API availability, latency, validation failures, Engineer response modes, provider errors, log volume, and Prometheus storage. API logs include only the route, method, status class, response mode, duration, and sanitized provider error category; they exclude questions, prompts, evidence text, selected context, simulated values, and credentials.
+Open `http://localhost:8080`. The web port is bound to loopback. The web/API health endpoint is `http://localhost:8080/api/health`; Grafana is bound to `http://127.0.0.1:3000` (default local login: `admin` / `admin`). Prometheus, Loki, API, and Alloy have no published host ports. Grafana includes a provisioned dashboard for API availability, latency, validation failures, Engineer response modes, provider errors, log volume, and Prometheus storage. API logs include only the route, method, status class, response mode, duration, and sanitized provider error category; they exclude questions, prompts, evidence text, selected context, simulated values, and credentials.
 
-Stop the stack with `docker compose -f deploy/local/compose.yaml down`; named Grafana, Loki, and Prometheus state is preserved. To remove only those local observability volumes, run `docker compose -f deploy/local/compose.yaml down -v`. Neither command changes source files, the versioned demo fixture, or browser discoveries. Clear browser `localStorage` separately to reset discoveries. Nginx publishes only the web port (default `8080`), while Grafana is loopback-bound (default `3000`).
+Stop the stack with `docker compose -f deploy/local/compose.yaml down`; named Grafana, Loki, and Prometheus state is preserved. To remove only those local observability volumes, run `docker compose -f deploy/local/compose.yaml down -v`. Neither command changes source files, the versioned demo fixture, or browser discoveries. Clear browser `localStorage` separately to reset discoveries. Nginx publishes only the web port (default `8080`) on loopback, while Grafana is loopback-bound (default `3000`).
+
+## Share privately over Tailscale
+
+With Docker and Tailscale connected on this machine, start a separate Compose project for the tailnet deployment:
+
+```sh
+npm run tailnet:up
+```
+
+The command builds and health-checks the stack, binds the web port to `127.0.0.1`, and configures Tailscale Serve on the first free HTTPS port from `10000` through `10100`. It prints the HTTPS URL for this machine's tailnet DNS name. The API remains behind Nginx; Grafana stays on loopback and the other observability services have no host ports. Only tailnet devices permitted by your Tailscale access policy can reach the app. This deployment uses `tailscale serve`; it does not enable Funnel or create a public URL.
+
+```sh
+npm run tailnet:status
+npm run tailnet:down
+```
+
+Status checks the saved Serve route, local app health, and Compose services. Stop removes only the Make a Mark route and its Compose containers; it preserves other Serve routes and named observability volumes. The tailnet deployment uses its own Compose project and defaults to web port `8081` and Grafana port `3001`, so it can run beside the standard local Compose stack. Override these with `TAILNET_WEB_PORT` or `TAILNET_GRAFANA_PORT` if needed. Set `TAILNET_HTTPS_PORT` to request a specific available Serve port; a port already used by Serve or Funnel is rejected without changing that route.
+
+To run the browser acceptance suite through the tailnet HTTPS entry point, set the URL printed by `tailnet:up`:
+
+```sh
+PLAYWRIGHT_BASE_URL="https://<machine>.<tailnet>.ts.net:<port>/" npm run test:e2e:tailnet
+```
+
+The suite runs against the existing app and does not start or stop Compose services. Also verify from a device outside the tailnet that the URL is inaccessible.
 
 ## Configuration checklist
 

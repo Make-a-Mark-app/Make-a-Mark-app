@@ -9,6 +9,7 @@
     "test:e2e": "playwright test",
     "test:e2e:compose": "node scripts/test-compose-acceptance.mjs",
     "test:compose:config": "node --test scripts/test-compose-contract.mjs",
+    "test:provider:config": "node --import tsx --test scripts/test-provider-config.mjs",
     "setup:local": "node scripts/setup-local-env.mjs",
     "start": "tsx server/index.ts",
     "build:server": "tsc -p tsconfig.server.build.json",

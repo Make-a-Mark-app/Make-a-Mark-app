@@ -20,7 +20,7 @@ export function createApp(options: { provider?: EngineerProvider; engineerRecord
   app.use((request, response, next) => {
     const startedAt = process.hrtime.bigint();
     response.once("finish", () => {
-      const routePath = typeof request.route?.path === "string" ? request.route.path : "other";
+      const routePath = typeof request.route?.path === "string" ? request.route.path : request.path;
       const route = ["/api/health", "/api/mission", "/api/mission/outcome", "/api/evidence", "/api/telemetry", "/api/engineer", "/metrics"].includes(routePath) ? routePath : "other";
       const method = request.method === "GET" || request.method === "POST" ? request.method : "OTHER";
       const statusClass = Math.floor(response.statusCode / 100) + "xx";
@@ -31,8 +31,7 @@ export function createApp(options: { provider?: EngineerProvider; engineerRecord
         if (response.locals.providerError) localMetrics.recordProviderError(response.locals.providerError);
       }
       const entry = {
-        timestamp: new Date().toISOString(), service: "api", environment: process.env.APP_ENV ?? "local",
-        severity: response.statusCode >= 500 ? "error" : "info", method, route, status_class: statusClass,
+        method, route, status_class: statusClass,
         duration_ms: Math.round(durationSeconds * 1000),
         ...(response.locals.engineerMode && { response_mode: response.locals.engineerMode }),
         ...(response.locals.providerError && { dependency_error_category: response.locals.providerError }),
@@ -127,7 +126,9 @@ export function createApp(options: { provider?: EngineerProvider; engineerRecord
       return;
     }
     response.locals.engineerMode = result.mode;
-    response.json(result);
+    if (result.dependencyErrorCategory) response.locals.providerError = result.dependencyErrorCategory;
+    const { dependencyErrorCategory: _dependencyErrorCategory, ...publicResult } = result;
+    response.json(publicResult);
   });
 
   app.use((error: unknown, _request: express.Request, response: express.Response, next: express.NextFunction) => {

@@ -22,6 +22,7 @@ export type EngineerResponse = {
   relatedRecordIds: string[];
   mode: "grounded_ai" | "prepared_fallback" | "no_answer";
   modeLabel: "Grounded explanation · citations validated" | "Prepared answer" | "No answer";
+  dependencyErrorCategory?: "request_failed" | "invalid_response";
 };
 
 export type EngineerProviderInput = {
@@ -193,6 +194,7 @@ function preparedResponse(records: EvidenceRecord[], mission?: MissionSummary, t
     relatedRecordIds: records.map(({ id }) => id),
     mode: "prepared_fallback",
     modeLabel: "Prepared answer",
+    ...(providerIssue && { dependencyErrorCategory: providerIssue === "unavailable" ? "request_failed" : "invalid_response" }),
   };
 }
 

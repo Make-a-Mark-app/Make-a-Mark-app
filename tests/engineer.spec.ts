@@ -421,13 +421,50 @@ test("the browser submits only the selected snapshot id and receives canonical d
   expect(submittedContext.telemetry).toEqual({ stepId: "step-04" });
 });
 
-test("the full app explains when the Engineer API is unavailable", async ({ page }) => {
-  await page.route("**/api/engineer", (route) => route.abort());
-  await page.goto("/engineer");
-  await page.getByLabel("YOUR QUESTION").fill("What is the travel and logistics emissions reduction?");
-  await page.getByRole("button", { name: "Send question" }).click();
+test("Engineer failures do not retry and do not block mission, evidence, or telemetry browsing", async ({ page }) => {
+  let attempts = 0;
+  await page.route("**/api/engineer", (route) => {
+    attempts += 1;
+    return route.abort();
+  });
+  await page.goto("/mission/freight");
+  await page.getByRole("radio", { name: /Air/ }).click();
+  await page.getByRole("button", { name: /Ask the Race Engineer/ }).click();
+  await expect(page.getByRole("heading", { name: "Ask the Race Engineer." })).toBeVisible();
+
+  const sendButton = page.getByRole("button", { name: "Send question" });
+  await page.getByLabel("YOUR QUESTION").fill("evidence outage question 7192");
+  await sendButton.click();
   await expect(page.getByText("The Race Engineer API is unavailable, so I could not retrieve an approved record or selected-context explanation.")).toBeVisible();
   await expect(page.getByText("API unavailable", { exact: true })).toBeVisible();
+
+  await page.getByLabel("QUESTION CATEGORY").selectOption("mission");
+  await page.getByLabel("YOUR QUESTION").fill("What happens for the air route?");
+  await page.getByRole("checkbox", { name: /Include fictional Mission scenario/ }).check();
+  await sendButton.click();
+  await expect(page.getByText("API unavailable", { exact: true })).toBeVisible();
+
+  await page.getByLabel("QUESTION CATEGORY").selectOption("telemetry");
+  await page.getByLabel("YOUR QUESTION").fill("What signals are in this simulated snapshot?");
+  await page.getByRole("checkbox", { name: /Include simulated snapshot/ }).check();
+  await sendButton.click();
+  await expect(page.getByText("API unavailable", { exact: true })).toBeVisible();
+  await page.waitForTimeout(1000);
+  expect(attempts).toBe(3);
+  const savedState = await page.evaluate(() => JSON.stringify(localStorage));
+  expect(savedState).not.toContain("evidence outage question 7192");
+  expect(savedState).not.toContain("What happens for the air route?");
+  expect(savedState).not.toContain("What signals are in this simulated snapshot?");
+  expect(savedState).not.toContain("step-01");
+  expect(savedState).not.toContain("missionId");
+
+  await page.getByRole("link", { name: "Freight mission" }).click();
+  await expect(page.getByRole("heading", { name: "Deliver the parts." })).toBeVisible();
+  await page.getByRole("link", { name: "Evidence library" }).click();
+  await expect(page.getByRole("heading", { name: "Source-reviewed evidence" })).toBeVisible();
+  await page.getByRole("link", { name: "Simulated live view" }).click();
+  await expect(page.getByRole("heading", { name: "Simulated live view" })).toBeVisible();
+  expect(attempts).toBe(3);
 });
 
 test("the API reports an oversized request as JSON 413", async ({ request }) => {

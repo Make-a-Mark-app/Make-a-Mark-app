@@ -34,11 +34,12 @@ function isIllustrativeSample(record: LibraryRecord): record is IllustrativeSamp
   return "review" in record;
 }
 
-const navItems: Array<{ id: Screen; label: string }> = [
-  { id: "world", label: "World" },
-  { id: "mission", label: "Freight mission" },
-  { id: "library", label: "Evidence library" },
-  { id: "telemetry", label: "Simulated live view" },
+const navItems: Array<{ id: Screen; label: string; href: string }> = [
+  { id: "world", label: "World", href: "/world" },
+  { id: "mission", label: "Freight mission", href: "/mission" },
+  { id: "library", label: "Evidence library", href: "/evidence" },
+  { id: "telemetry", label: "Simulated live view", href: "/telemetry" },
+  { id: "about", label: "How to read this", href: "/method" },
 ];
 
 const screenPaths: Record<Screen, string> = {
@@ -57,12 +58,12 @@ function readSavedDiscovery(): DiscoveryRecap {
 function screenFromPath(path: string): Screen {
   const route = path.replace(/\/$/, "") || "/";
   if (route === "/world") return "world";
-  if (route === "/mission/freight") return "mission";
-  if (route === "/library" || route.startsWith("/library/")) return "library";
+  if (route === "/mission" || route === "/mission/freight") return "mission";
+  if (route === "/evidence" || route === "/library" || route.startsWith("/library/")) return "library";
   if (route === "/telemetry") return "telemetry";
   if (route === "/engineer") return "engineer";
   if (route === "/summary") return "summary";
-  if (route === "/about") return "about";
+  if (route === "/method" || route === "/about") return "about";
   return "home";
 }
 
@@ -254,25 +255,25 @@ function App() {
           {menuOpen ? <X size={19} /> : <Menu size={20} />}
         </button>
         <nav className={`primary-nav ${menuOpen ? "open" : ""}`} aria-label="Main navigation">
-          {navItems.map((item) => <a key={item.id} className={activeNav === item.id ? "active" : ""} href={screenPaths[item.id]} onClick={(e) => { e.preventDefault(); navigate(item.id); }}>{item.label}</a>)}
+          {navItems.map((item) => <a key={item.id} className={activeNav === item.id ? "active" : ""} href={item.href} aria-current={activeNav === item.id ? "page" : undefined} onClick={(e) => { e.preventDefault(); navigate(item.id); }}>{item.label}</a>)}
         </nav>
         <div className="topbar-meta"><span className="session-dot" /> Local prototype <span className="meta-divider">·</span> No account</div>
       </header>
 
       <main id="main" key={screen}>
-        {screen === "home" && <Home discovery={discovery} onChoose={chooseRoute} onNavigate={navigate} />}
+        {screen === "home" && <Home />}
         {screen === "world" && <World car={car} moveCar={moveCar} found={discovery.foundToken} onFind={() => setDiscovery((d) => ({ ...d, foundToken: true, topics: d.topics.includes("Environment") ? d.topics : [...d.topics, "Environment"] }))} status={status} onNavigate={navigate} />}
         {screen === "mission" && <Mission discovery={discovery} onChoose={chooseRoute} onFinish={finishMission} onRetry={retryMission} onNavigate={navigate} status={status} />}
-        {screen === "library" && <Library search={search} setSearch={setSearch} topic={topic} setTopic={setTopic} topicTag={topicTag} setTopicTag={setTopicTag} period={period} setPeriod={setPeriod} view={evidenceView} setView={setEvidenceView} records={visibleRecords} onOpen={openRecord} />}
+        {screen === "library" && <Library search={search} setSearch={setSearch} topic={topic} setTopic={setTopic} topicTag={topicTag} setTopicTag={setTopicTag} period={period} setPeriod={setPeriod} view={evidenceView} setView={setEvidenceView} records={visibleRecords} onOpen={openRecord} onNavigate={navigate} />}
         {screen === "telemetry" && <Telemetry index={telemetryIndex} onSelect={setTelemetryIndex} onAdvance={() => setTelemetryIndex((index) => Math.min(index + 1, telemetrySnapshots.length - 1))} />}
         {screen === "engineer" && <Engineer question={question} setQuestion={setQuestion} category={engineerCategory} setCategory={setEngineerCategory} canSubmit={engineerSubmissionReady} reply={reply} asking={asking} onSubmit={askEngineer} currentChoice={discovery.routeChoice} detailLevel={detailLevel} setDetailLevel={setDetailLevel} includeMissionContext={includeMissionContext} setIncludeMissionContext={setIncludeMissionContext} includeTelemetryContext={includeTelemetryContext} setIncludeTelemetryContext={setIncludeTelemetryContext} telemetrySnapshot={telemetrySnapshots[telemetryIndex]} />}
         {screen === "summary" && <Summary discovery={discovery} onNavigate={navigate} onClear={clearDiscoveries} status={status} />}
-        {screen === "about" && <About onNavigate={navigate} />}
+        {screen === "about" && <TrustGuide onNavigate={navigate} />}
       </main>
 
       <footer className="site-footer">
         <span>MAKE A MARK <i>·</i> IMPACT DRIVE</span>
-        <div><button onClick={() => setMotionOn(!motionOn)} aria-pressed={!motionOn}>{motionOn ? "Reduce motion" : "Motion reduced"}</button><button onClick={() => navigate("about")}>How this prototype works</button><button onClick={() => navigate("summary")}>My discoveries</button></div>
+        <div><button onClick={() => setMotionOn(!motionOn)} aria-pressed={!motionOn}>{motionOn ? "Reduce motion" : "Motion reduced"}</button><a href="/method" onClick={(e) => { e.preventDefault(); navigate("about"); }}>How this prototype works</a><button onClick={() => navigate("summary")}>My discoveries</button></div>
       </footer>
 
       {selectedRecord && <EvidenceDialog record={selectedRecord} onClose={closeRecord} />}
@@ -323,9 +324,7 @@ function Telemetry({ index, onSelect, onAdvance }: { index: number; onSelect: (i
   );
 }
 
-function Home({ discovery, onChoose, onNavigate }: { discovery: DiscoveryRecap; onChoose: (id: RouteId) => void; onNavigate: (screen: Screen) => void }) {
-  const [choice, setChoice] = useState<RouteId | null>(discovery.routeChoice);
-  const route = routeOptions.find((item) => item.id === choice);
+function Home() {
   return (
     <div className="home-page">
       <section className="home-hero" aria-labelledby="home-title">
@@ -333,7 +332,7 @@ function Home({ discovery, onChoose, onNavigate }: { discovery: DiscoveryRecap; 
           <p className="overline"><span /> ONE MISSION. A WIDER PICTURE.</p>
           <h1 id="home-title">Come for the drive.<br /><em>Discover the impact.</em></h1>
           <p className="hero-description">Explore a freight mission, uncover the evidence behind real-world choices, and see the bigger picture along the way.</p>
-          <div className="hero-actions"><button className="button button-primary" onClick={() => onNavigate("world")}>Enter the world <ArrowRight size={17} /></button><button className="button button-quiet" onClick={() => onNavigate("mission")}>Go to freight mission</button></div>
+          <div className="hero-actions"><a className="button button-primary" href="/mission">Start freight mission <ArrowRight size={17} /></a><a className="button button-quiet" href="/evidence">Browse evidence library</a></div>
           <div className="hero-footnote"><span className="footline" /> GAME SCENARIOS ARE FICTIONAL</div>
         </div>
         <div className="hero-landscape" role="img" aria-label="Illustrated logistics circuit linking a race track, freight hub and port">
@@ -341,21 +340,23 @@ function Home({ discovery, onChoose, onNavigate }: { discovery: DiscoveryRecap; 
           <div className="landscape-caption"><span>01 / 01</span><span>THE FREIGHT CIRCUIT</span></div>
           <div className="landscape-route-mark"><span className="route-pulse" /><span>DISCOVERY POINT</span></div>
         </div>
-        <div className="route-panel">
-          <div className="panel-heading"><div><span className="panel-index">01 / ENVIRONMENT</span><h2>Freight choices</h2></div><span className="panel-chevron"><ArrowRight size={18} /></span></div>
-          <p className="panel-intro">Choose how to move the shipment, then explore what the reports say.</p>
-          <div className="route-options" role="radiogroup" aria-label="Choose a fictional freight route">
-            {routeOptions.map((item, index) => <button key={item.id} role="radio" aria-checked={choice === item.id} className={`route-option ${choice === item.id ? "selected" : ""}`} onClick={() => { setChoice(item.id); onChoose(item.id); }}>
-              <span className={`route-icon route-icon-${item.id}`} aria-hidden="true">{index === 0 ? <PlaneIcon /> : index === 1 ? <ShipIcon /> : <TruckIcon />}</span><span className="route-copy"><strong>{item.name}</strong><small>{item.mode}</small></span><span className="radio-dot" />
-            </button>)}
+        <div className="route-panel entry-panel">
+          <div className="panel-heading"><div><span className="panel-index">TWO WAYS TO EXPLORE</span><h2>Choose your starting point.</h2></div><span className="panel-chevron"><ArrowRight size={18} /></span></div>
+          <div className="entry-path">
+            <span className="entry-path-label">PLAY</span>
+            <p>Take an untimed fictional freight mission with deterministic choices.</p>
+            <a className="text-link" href="/mission">Start the mission <ArrowRight size={15} /></a>
           </div>
-          <div className="fiction-label"><span className="fiction-mark">G</span><span>Game scenario <b>·</b> fictional values</span><Info size={14} /></div>
-          {route && <p className="route-outcome" aria-live="polite">{route.feedback}</p>}
-          <button className="button button-panel" onClick={() => onNavigate(choice ? "mission" : "mission")}>{choice ? "Continue mission" : "Set your route"}<ArrowRight size={16} /></button>
+          <div className="entry-path">
+            <span className="entry-path-label">VERIFY</span>
+            <p>Go straight to the evidence library, with no mission required.</p>
+            <a className="text-link" href="/evidence">Open the evidence library <ArrowRight size={15} /></a>
+          </div>
+          <a className="entry-method-link" href="/method">How to read the labels <ArrowUpRight size={15} /></a>
         </div>
-        <div className="home-bottom"><div className="evidence-teaser"><span className="document-icon"><BookOpen size={20} /></span><div><h3>From the reports</h3><p>Browse a small source-reviewed set with its limits.</p><button onClick={() => onNavigate("library")}>Explore evidence library <ArrowRight size={15} /></button></div></div><div className="control-teaser"><div className="key-cluster"><span>W</span><div><span>A</span><span>S</span><span>D</span></div></div><div><small>MOVE THROUGH THE WORLD</small><p>Use WASD or arrow keys.<br />Or choose a route directly.</p></div></div><div className="local-note"><span className="local-note-mark">✳</span><p>Your discoveries stay<br />on this device.</p></div></div>
+        <div className="home-bottom"><div className="evidence-teaser"><span className="document-icon"><BookOpen size={20} /></span><div><h3>From the reports</h3><p>{evidenceRecords.length ? "Source-reviewed claims are available to browse." : "Source-reviewed claims will appear here when available."}</p><a href="/evidence">Explore evidence library <ArrowRight size={15} /></a></div></div><div className="control-teaser"><div className="key-cluster"><span>W</span><div><span>A</span><span>S</span><span>D</span></div></div><div><small>MOVE THROUGH THE WORLD</small><p>Use WASD or arrow keys.<br />Or choose the mission directly.</p></div></div><div className="local-note"><span className="local-note-mark">✳</span><p>Your discoveries stay<br />on this device.</p></div></div>
       </section>
-      <section className="home-next"><div><span className="section-count">01</span><p>START WITH A CHOICE</p><h2>One route.<br />A lot to discover.</h2></div><div className="next-copy"><p>This is a short, fictional freight scenario. Your route shapes the game, then a clear line separates the game from source-backed evidence.</p><button className="text-link" onClick={() => onNavigate("about")}>See how the evidence works <ArrowUpRight size={16} /></button></div><div className="next-aside"><span className="aside-rule" /><span>PLAY, THEN LOOK CLOSER</span></div></section>
+      <section className="home-next"><div><span className="section-count">01</span><p>START WITH A CHOICE</p><h2>One route.<br />A lot to discover.</h2></div><div className="next-copy"><p>This is a short, fictional freight scenario. Your route shapes the game, then a clear line separates the game from source-backed evidence.</p><a className="text-link" href="/method">See how the evidence works <ArrowUpRight size={16} /></a></div><div className="next-aside"><span className="aside-rule" /><span>PLAY, THEN LOOK CLOSER</span></div></section>
     </div>
   );
 }
@@ -422,7 +423,7 @@ function Mission({ discovery, onChoose, onFinish, onRetry, onNavigate, status }:
   );
 }
 
-function Library({ search, setSearch, topic, setTopic, topicTag, setTopicTag, period, setPeriod, view, setView, records, onOpen }: {
+function Library({ search, setSearch, topic, setTopic, topicTag, setTopicTag, period, setPeriod, view, setView, records, onOpen, onNavigate }: {
   search: string;
   setSearch: (value: string) => void;
   topic: string;
@@ -435,31 +436,59 @@ function Library({ search, setSearch, topic, setTopic, topicTag, setTopicTag, pe
   setView: (value: EvidenceView) => void;
   records: LibraryRecord[];
   onOpen: (record: LibraryRecord) => void;
+  onNavigate: (screen: Screen) => void;
+}) {
+  search: string;
+  setSearch: (value: string) => void;
+  topic: string;
+  setTopic: (value: string) => void;
+  topicTag: string;
+  setTopicTag: (value: string) => void;
+  period: string;
+  setPeriod: (value: string) => void;
+  view: EvidenceView;
+  setView: (value: EvidenceView) => void;
+  records: LibraryRecord[];
+  onOpen: (record: LibraryRecord) => void;
+  onNavigate: (screen: Screen) => void;
 }) {
   const isReportedView = view === "reported";
   return (
     <div className="content-page library-page">
-      <div className="library-intro"><p className="overline"><span /> SOURCE-REVIEWED EVIDENCE</p><h1>Source-reviewed evidence</h1><p>Browse a limited set of claims with their source, reporting period, review note, and limitations in view.</p></div>
+      <div className="library-intro"><p className="overline"><span /> SOURCE-REVIEWED EVIDENCE</p><h1>Evidence library</h1><p>{evidenceRecords.length ? "Browse a limited set of claims with their source, reporting period, review note, and limitations in view." : "Reported impact claims will appear here when they have been checked against their published sources."}</p></div>
       <div className="library-trust"><ShieldCheck size={18} /><span>Only reviewed report results appear as <strong>Reported impact</strong>. Sources are not endorsements, and this library is not complete.</span></div>
       <div className="evidence-views" aria-label="Evidence views">
         <button aria-pressed={isReportedView} onClick={() => setView("reported")}>Reported impact</button>
         <button aria-pressed={!isReportedView} onClick={() => setView("illustrative")}>Illustrative samples</button>
       </div>
-      {!isReportedView && <p className="sample-explainer">Illustrative demo data — not live AMF1 data or a measured impact result.</p>}
-      <div className="library-toolbar"><label className="search-field"><Search size={17} /><span className="sr-only">Search evidence library</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Literal search across reviewed claims" /></label><label className="filter-select"><span className="sr-only">Filter by pillar</span><select value={topic} onChange={(e) => setTopic(e.target.value)}><option>All pillars</option><option>Environment</option><option>Belong</option><option>Community</option></select><ChevronDown size={15} /></label>{isReportedView && <><label className="filter-select"><span className="sr-only">Filter by controlled topic</span><select value={topicTag} onChange={(e) => setTopicTag(e.target.value)}><option>All topics</option>{evidenceTopicTags.map((tag) => <option key={tag} value={tag}>{tag.replaceAll("-", " ")}</option>)}</select><ChevronDown size={15} /></label><label className="filter-select"><span className="sr-only">Filter by reporting period</span><select value={period} onChange={(e) => setPeriod(e.target.value)}><option>All periods</option><option value="2025">2025</option></select><ChevronDown size={15} /></label></>}</div>
-      <div className="library-count"><span>{records.length} {isReportedView ? "REPORTED CLAIM" : "ILLUSTRATIVE SAMPLE"}{records.length === 1 ? "" : "S"}</span><span>{isReportedView ? "REVIEWED CLAIMS ONLY" : "NOT REPORTED IMPACT"}</span></div>
-      <div className="evidence-list">{records.length ? records.map((record, index) => {
-        const illustrative = isIllustrativeSample(record);
-        const summary = illustrative ? record.summary : record.claim;
-        const claimType = illustrative ? record.claimType : record.claimType === "report_result" ? "Report result" : record.claimType === "target" ? "Target" : "Method";
-        const period = illustrative ? record.period : record.reportingPeriod ?? "No reporting period stated";
-        const source = illustrative ? record.source : `${record.source.title} · ${record.source.edition}`;
-        const review = illustrative ? record.review : "Source-reviewed for this prototype";
-        return <article className="evidence-row" key={record.id}>
-          <div className="record-index">0{index + 1}</div><div className="record-main"><div className="record-meta"><span>{record.topic}</span><b>·</b><span>{claimType}</span>{!illustrative && <><b>·</b><span>{record.topicTag.replaceAll("-", " ")}</span></>}</div><h2>{record.title}</h2><p>{summary}</p><button className="text-link" aria-label={`Open record: ${record.title}`} onClick={() => onOpen(record)}>Open record <ArrowRight size={15} /></button></div><div className="record-source"><span className="review-label"><span /> {review}</span><span>{period}</span><span>{source}</span>{!illustrative && <><span>{record.source.location ?? "Source location not stated"}</span><a href={record.source.url} target="_blank" rel="noreferrer">Open source report</a><small>Limitations: {record.limitations.join(" ")}</small></>}</div><ArrowUpRight className="record-arrow" size={17} />
-        </article>;
-      }) : <div className="empty-results"><Search size={20} /><h2>{search.trim() ? "Not enough evidence" : "No records match"}</h2><p>{search.trim() ? "No reviewed record supports this literal search." : "Try a different pillar, topic, or period."}</p></div>}</div>
-      <div className="library-method"><span>01 — CONTENT STANDARD</span><p>Reporting period and publication date stay distinct. Targets, commitments, outputs, and outcomes keep their own labels.</p><span className="method-mark">MM</span></div>
+      {isReportedView && evidenceRecords.length === 0 ? (
+        <section className="library-empty" aria-labelledby="library-empty-title">
+          <ShieldCheck size={22} aria-hidden="true" />
+          <div>
+            <h2 id="library-empty-title">No source-reviewed impact reports are available yet.</h2>
+            <p>There are no report claims to browse right now. Illustrative examples are not shown as reported evidence.</p>
+            <a className="text-link" href="/method" onClick={(event) => { event.preventDefault(); onNavigate("about"); }}>How to read the labels <ArrowRight size={15} /></a>
+          </div>
+        </section>
+      ) : (
+        <>
+          {!isReportedView && <p className="sample-explainer">Illustrative samples are examples, not reported claims. Illustrative demo data — not live AMF1 data or a measured impact result.</p>}
+          <div className="library-toolbar"><label className="search-field"><Search size={17} /><span className="sr-only">Search evidence library</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Literal search across reviewed claims" /></label><label className="filter-select"><span className="sr-only">Filter by pillar</span><select value={topic} onChange={(e) => setTopic(e.target.value)}><option>All pillars</option><option>Environment</option><option>Belong</option><option>Community</option></select><ChevronDown size={15} /></label>{isReportedView && <><label className="filter-select"><span className="sr-only">Filter by controlled topic</span><select value={topicTag} onChange={(e) => setTopicTag(e.target.value)}><option>All topics</option>{evidenceTopicTags.map((tag) => <option key={tag} value={tag}>{tag.replaceAll("-", " ")}</option>)}</select><ChevronDown size={15} /></label><label className="filter-select"><span className="sr-only">Filter by reporting period</span><select value={period} onChange={(e) => setPeriod(e.target.value)}><option>All periods</option><option value="2025">2025</option></select><ChevronDown size={15} /></label></>}</div>
+          <div className="library-count"><span>{records.length} {isReportedView ? "REPORTED CLAIM" : "ILLUSTRATIVE SAMPLE"}{records.length === 1 ? "" : "S"}</span><span>{isReportedView ? "REVIEWED CLAIMS ONLY" : "NOT REPORTED IMPACT"}</span></div>
+          <div className="evidence-list">{records.length ? records.map((record, index) => {
+            const illustrative = isIllustrativeSample(record);
+            const summary = illustrative ? record.summary : record.claim;
+            const claimType = illustrative ? record.claimType : record.claimType === "report_result" ? "Report result" : record.claimType === "target" ? "Target" : "Method";
+            const period = illustrative ? record.period : record.reportingPeriod ?? "No reporting period stated";
+            const source = illustrative ? record.source : `${record.source.title} · ${record.source.edition}`;
+            const review = illustrative ? record.review : "Source-reviewed for this prototype";
+            return <article className="evidence-row" key={record.id}>
+              <div className="record-index">0{index + 1}</div><div className="record-main"><div className="record-meta"><span>{record.topic}</span><b>·</b><span>{claimType}</span>{!illustrative && <><b>·</b><span>{record.topicTag.replaceAll("-", " ")}</span></>}</div><h2>{record.title}</h2><p>{summary}</p><button className="text-link" aria-label={`Open record: ${record.title}`} onClick={() => onOpen(record)}>Open record <ArrowRight size={15} /></button></div><div className="record-source"><span className="review-label"><span /> {review}</span><span>{period}</span><span>{source}</span>{!illustrative && <><span>{record.source.location ?? "Source location not stated"}</span><a href={record.source.url} target="_blank" rel="noreferrer">Open source report</a><small>Limitations: {record.limitations.join(" ")}</small></>}</div><ArrowUpRight className="record-arrow" size={17} />
+            </article>;
+          }) : <div className="empty-results"><Search size={20} /><h2>{search.trim() ? "Not enough evidence" : "No records match"}</h2><p>{search.trim() ? "No reviewed record supports this literal search." : "Try a different pillar, topic, or period."}</p></div>}</div>
+          <div className="library-method"><span>01 — CONTENT STANDARD</span><p>Reporting period and publication date stay distinct. Targets, commitments, outputs, and outcomes keep their own labels.</p><span className="method-mark">MM</span></div>
+        </>
+      )}
     </div>
   );
 }
@@ -538,8 +567,59 @@ function Summary({ discovery, onNavigate, onClear, status }: { discovery: Discov
   );
 }
 
-function About({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
-  return <div className="content-page about-page"><p className="overline"><span /> HOW THIS PROTOTYPE WORKS</p><h1>Play is the invitation.<br /><em>Evidence is the point.</em></h1><p className="about-lede">Impact Drive keeps three things separate: a fictional game, source-backed evidence, and explanations that point back to that evidence.</p><div className="about-pillars"><article><span>01 / PLAY</span><h2>Mission scenario</h2><p>Freight route choices and outcomes are deterministic game scenarios. They are not operational AMF1 data.</p></article><article><span>02 / EVIDENCE</span><h2>Reviewed records</h2><p>The library contains a limited set of source-reviewed claims with source locations, reporting periods, review notes, and limitations. Illustrative samples stay separate; sources do not imply endorsement.</p></article><article><span>03 / EXPLANATION</span><h2>Race Engineer</h2><p>The Engineer retrieves only reviewed records and context you choose to include. A server-side provider is optional; prepared fallback and no-answer responses remain available.</p></article></div><div className="about-boundary"><ShieldCheck size={20} /><div><strong>Prototype boundary</strong><p>No sign-in, personal-data collection, real-time telemetry, or claimed real-world impact. Your session summary stays in this browser.</p></div></div><button className="button button-primary" onClick={() => onNavigate("world")}>Enter the world <ArrowRight size={16} /></button></div>;
+function TrustGuide({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
+  const categories = [
+    {
+      name: "Simulated live view",
+      label: "A SCRIPTED SESSION",
+      summary: "If shown, values and timestamps come from a local demonstration fixture, not a live AMF1 feed.",
+      detail: "A simulated fixture advances only when a visitor chooses to advance it. Its status, units, and timestamps are part of the simulation.",
+    },
+    {
+      name: "Reported impact",
+      label: "A PUBLISHED CLAIM",
+      summary: "A claim from a published report, shown with its source, reporting period, and limitations.",
+      detail: "A source location is included when available. A reported claim is not described as AMF1-approved unless that approval has actually been given.",
+    },
+    {
+      name: "Illustrative impact placeholder",
+      label: "AN EXAMPLE VALUE",
+      summary: "A fictional sample that demonstrates how a future impact value might appear. Label it: Illustrative demo data — not live AMF1 data or a measured impact result.",
+      detail: "Keep this exact label beside every illustrative impact value so it cannot be mistaken for a live or measured result.",
+    },
+    {
+      name: "Mission scenario",
+      label: "A FICTIONAL RESULT",
+      summary: "Freight choices and feedback are deterministic game content, not operational data or measured impact.",
+      detail: "The game outcome is independent of telemetry and evidence. It does not calculate an emissions, delivery, or real-world impact score.",
+    },
+  ];
+
+  return (
+    <div className="content-page about-page method-page">
+      <p className="overline"><span /> HOW TO READ THIS EXPERIENCE</p>
+      <h1>Know what each value means.</h1>
+      <p className="about-lede">Impact Drive separates a fictional mission, a simulated session, published report claims, and illustrative examples. This experience contains a limited set of source-reviewed claims, and labels stay beside the values they describe.</p>
+      <div className="trust-guide">
+        {categories.map((category, index) => (
+          <article className="trust-category" key={category.name}>
+            <span>{String(index + 1).padStart(2, "0")} / {category.label}</span>
+            <h2>{category.name}</h2>
+            <p>{category.summary}</p>
+            <details>
+              <summary>More detail</summary>
+              <p>{category.detail}</p>
+            </details>
+          </article>
+        ))}
+      </div>
+      <div className="about-boundary"><ShieldCheck size={20} /><div><strong>No live AMF1 feed or measured impact</strong><p>The mission and simulated values do not describe AMF1 operations. Reported claims remain connected to their source and limitations. The Race Engineer retrieves reviewed records and only the mission or simulated telemetry context you choose to include.</p></div></div>
+      <div className="method-actions">
+        <button className="button button-primary" onClick={() => onNavigate("mission")}>Start the freight mission <ArrowRight size={16} /></button>
+        <button className="button button-quiet" onClick={() => onNavigate("library")}>Browse evidence library</button>
+      </div>
+    </div>
+  );
 }
 
 function EvidenceDialog({ record, onClose }: { record: LibraryRecord; onClose: () => void }) {
@@ -561,7 +641,7 @@ function EvidenceDialog({ record, onClose }: { record: LibraryRecord; onClose: (
     };
   }, [onClose]);
   if (isIllustrativeSample(record)) {
-  return <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}><section className="evidence-dialog" role="dialog" aria-modal="true" aria-labelledby="record-title"><button ref={closeButton} className="dialog-close icon-button" aria-label="Close record" onClick={onClose}><X size={19} /></button><p className="overline"><span /> ILLUSTRATIVE SAMPLE / {record.topic.toUpperCase()}</p><h2 id="record-title">{record.title}</h2><span className="review-label large"><span /> {record.review.toUpperCase()}</span><p className="dialog-summary">{record.summary}</p><div className="record-fields"><div><span>CLAIM TYPE</span><strong>{record.claimType}</strong></div><div><span>REPORTING PERIOD</span><strong>{record.period}</strong></div><div><span>SOURCE</span><strong>{record.source}</strong></div><div><span>LOCATION</span><strong>{record.page}</strong></div></div><div className="dialog-limits"><Info size={16} /><div><strong>Limitations</strong>{record.limitations.map((limitation) => <p key={limitation}>{limitation}</p>)}</div></div><p className="dialog-footnote">Illustrative demo data — not live AMF1 data or a measured impact result.</p></section></div>;
+    return <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}><section className="evidence-dialog" role="dialog" aria-modal="true" aria-labelledby="record-title"><button ref={closeButton} className="dialog-close icon-button" aria-label="Close record" onClick={onClose}><X size={19} /></button><p className="overline"><span /> ILLUSTRATIVE SAMPLE / {record.topic.toUpperCase()}</p><h2 id="record-title">{record.title}</h2><span className="review-label large"><span /> {record.review.toUpperCase()}</span><p className="dialog-summary">{record.summary}</p><div className="record-fields"><div><span>CLAIM TYPE</span><strong>{record.claimType}</strong></div><div><span>REPORTING PERIOD</span><strong>{record.period}</strong></div><div><span>SOURCE</span><strong>{record.source}</strong></div><div><span>LOCATION</span><strong>{record.page}</strong></div></div><div className="dialog-limits"><Info size={16} /><div><strong>Limitations</strong>{record.limitations.map((limitation) => <p key={limitation}>{limitation}</p>)}</div></div><p className="dialog-footnote">Illustrative demo data — not live AMF1 data or a measured impact result.</p></section></div>;
   }
 
   const value = record.value === undefined ? "Not stated" : `${record.valueDisplay ?? record.value}${record.unit ? ` ${record.unit}` : ""}`;

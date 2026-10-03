@@ -71,7 +71,7 @@ test("the evidence API exposes validated source-reviewed claims with provenance"
 
 test("visitors can browse reviewed claims separately from illustrative samples", async ({ page }) => {
   await page.goto("/library");
-  await expect(page.getByRole("heading", { name: "Source-reviewed evidence" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Evidence library" })).toBeVisible();
   await expect(page.getByText(/AMF1 reports a 14% reduction in travel and logistics emissions/)).toBeVisible();
   await expect(page.getByText(/93% of the 2025 Aleto group felt they grew their professional network/)).toBeVisible();
   await expect(page.getByText("Report result").first()).toBeVisible();

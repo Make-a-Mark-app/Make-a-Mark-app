@@ -39,10 +39,17 @@ test("the local Compose contract exposes only loopback web and Grafana ports", (
 
   const apiLogVolume = config.services.api.volumes.find(({ target }) => target === "/var/log/cognizant");
   const alloyLogVolume = config.services.alloy.volumes.find(({ target }) => target === "/var/log/cognizant");
+  const alloyPositionVolume = config.services.alloy.volumes.find(({ target }) => target === "/var/lib/alloy/data");
   assert.equal(apiLogVolume?.source, "service-logs");
   assert.equal(apiLogVolume?.read_only, undefined);
   assert.equal(alloyLogVolume?.source, "service-logs");
   assert.equal(alloyLogVolume?.read_only, true);
+  assert.equal(alloyPositionVolume?.source, "alloy-data");
+  assert.equal(alloyPositionVolume?.read_only, undefined);
+  for (const volume of ["grafana-data", "loki-data", "prometheus-data", "service-logs", "alloy-data"]) {
+    assert.ok(config.volumes[volume], `the Compose project must own ${volume}`);
+  }
+  assert.deepEqual(Object.keys(config.volumes).sort(), ["alloy-data", "grafana-data", "loki-data", "prometheus-data", "service-logs"]);
   assert.equal(JSON.stringify(config.services.alloy.volumes).includes("docker.sock"), false);
   const alloyConfig = readFileSync(path.join(projectRoot, "deploy/local/alloy/config.alloy"), "utf8");
   assert.match(alloyConfig, /loki\.source\.file/);
@@ -110,4 +117,53 @@ test("local setup creates a private password once and preserves existing setting
   } finally {
     rmSync(temporaryRoot, { recursive: true, force: true });
   }
+});
+
+test("local observability applies retention targets and provisions actionable dashboards and alerts", () => {
+  const result = resolvedCompose();
+  assert.equal(result.status, 0, result.stderr);
+  const config = JSON.parse(result.stdout);
+  const prometheusArgs = config.services.prometheus.command.join(" ");
+  assert.match(prometheusArgs, /--storage\.tsdb\.retention\.time=15d/);
+  assert.match(prometheusArgs, /--storage\.tsdb\.retention\.size=850MB/);
+
+  const prometheusConfig = readFileSync(path.join(projectRoot, "deploy/local/prometheus/prometheus.yml"), "utf8");
+  assert.match(prometheusConfig, /job_name:\s*loki[\s\S]*?targets:\s*\[loki:3100\]/);
+  const lokiConfig = readFileSync(path.join(projectRoot, "deploy/local/loki/config.yaml"), "utf8");
+  assert.match(lokiConfig, /retention_period:\s*168h/);
+  assert.match(lokiConfig, /reporting_enabled:\s*false/);
+
+  const grafanaProvisioning = path.join(projectRoot, "deploy/local/grafana/provisioning");
+  const dashboard = JSON.parse(readFileSync(path.join(grafanaProvisioning, "dashboards/impact-drive.json"), "utf8"));
+  const dashboardText = JSON.stringify(dashboard);
+  for (const signal of ["API availability", "API latency p95", "HTTP request rate by status", "Validation failures", "Race Engineer response modes", "Optional provider errors", "Prometheus storage", "Local log volume", "Loki WAL disk usage"]) {
+    assert.ok(dashboardText.includes(signal), "dashboard must show " + signal);
+  }
+  const alertingPath = path.join(grafanaProvisioning, "alerting/alerts.yaml");
+  const alerting = readFileSync(alertingPath, "utf8");
+  assert.match(alerting, /API Down/);
+  assert.match(alerting, /for:\s*1m/);
+  assert.match(alerting, /Prometheus Storage Target/);
+  assert.match(alerting, /858993459/);
+  assert.match(alerting, /80%/);
+  assert.match(alerting, /WAL Disk Full/);
+  assert.match(alerting, /loki_ingester_wal_disk_full_failures_total/);
+  assert.doesNotMatch(alerting, /latency|validation|provider error/i);
+  assert.doesNotMatch(alerting, /contactPoints:|receivers:|https?:\/\//i);
+  const grafanaProvisioningVolume = config.services.grafana.volumes.find(({ target }) => target === "/etc/grafana/provisioning");
+  assert.ok(grafanaProvisioningVolume);
+  assert.equal(grafanaProvisioningVolume.read_only, true);
+  assert.equal(config.services.grafana.environment.GF_ANALYTICS_REPORTING_ENABLED, "false");
+
+  const docs = readFileSync(path.join(projectRoot, "docs/build-plan/step-05-local-containers-and-observability.md"), "utf8");
+  for (const statement of ["15 days", "850 MiB", "1 GiB", "7 days", "2 GiB", "256 MiB", "age-based", "disk pressure", "API continues serving"]) {
+    assert.ok(docs.toLowerCase().includes(statement.toLowerCase()), "docs must explain " + statement);
+  }
+  const readme = readFileSync(path.join(projectRoot, "README.md"), "utf8");
+  for (const statement of ["npm run setup:local", "WEB_PORT", "GRAFANA_PORT", "up --build web api", "down --volumes", "alloy-data", "Clear my discoveries"]) {
+    assert.ok(readme.includes(statement), `README must document ${statement}`);
+  }
+  assert.match(readme, /down --volumes[\s\S]*?service-logs[\s\S]*?alloy-data/);
+  assert.match(readme, /\.env[\s\S]*?versioned demo fixture[\s\S]*?source-reviewed evidence/);
+  assert.match(readme, /\/summary[\s\S]*?Clear my discoveries/);
 });

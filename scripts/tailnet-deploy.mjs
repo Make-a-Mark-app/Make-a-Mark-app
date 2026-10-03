@@ -10,6 +10,7 @@ const stateDirectory = path.join(projectRoot, ".tailnet-state");
 const stateFile = path.join(stateDirectory, "deployment.json");
 const defaultWebPort = 8081;
 const defaultGrafanaPort = 3001;
+const servePath = "/";
 const candidateServePorts = Array.from({ length: 101 }, (_, index) => 10000 + index);
 
 process.chdir(projectRoot);
@@ -94,7 +95,7 @@ function routeState(serveStatus, port, webPort) {
   const expectedTarget = `http://127.0.0.1:${webPort}`;
   const endpoints = Object.entries(serveStatus.Web ?? {}).filter(([hostPort]) => hostPort.endsWith(`:${port}`));
   const servesExpectedTarget = endpoints.some(([, endpoint]) =>
-    Object.values(endpoint.Handlers ?? {}).some((handler) => handler.Proxy === expectedTarget),
+    endpoint.Handlers?.[servePath]?.Proxy === expectedTarget,
   );
   return servesExpectedTarget ? "make-a-mark" : "other";
 }
@@ -169,7 +170,7 @@ async function start() {
   await checkHealth(`http://127.0.0.1:${webPort}/api/health`);
 
   if (!alreadyConfigured) {
-    command("tailscale", ["serve", "--yes", `--https=${servePort}`, "--bg", `http://127.0.0.1:${webPort}`]);
+    command("tailscale", ["serve", "--yes", `--https=${servePort}`, `--set-path=${servePath}`, "--bg", `http://127.0.0.1:${webPort}`]);
   }
 
   const currentServeStatus = readTailscaleJson(["serve", "status", "--json"]);
@@ -231,7 +232,7 @@ async function stop() {
       if (funnelEnabled(funnelStatus, state.servePort)) {
         throw new Error(`Funnel is configured on HTTPS port ${state.servePort}. Refusing to change its access mode.`);
       }
-      command("tailscale", ["serve", "--yes", `--https=${state.servePort}`, "--bg", "off"]);
+      command("tailscale", ["serve", "--yes", `--https=${state.servePort}`, `--set-path=${servePath}`, "--bg", "off"]);
     }
   }
 

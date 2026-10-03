@@ -37,6 +37,19 @@ test("the local Compose contract exposes only loopback web and Grafana ports", (
     assert.equal(config.services[service].ports, undefined, `${service} must not publish a host port`);
   }
 
+  const apiLogVolume = config.services.api.volumes.find(({ target }) => target === "/var/log/cognizant");
+  const alloyLogVolume = config.services.alloy.volumes.find(({ target }) => target === "/var/log/cognizant");
+  assert.equal(apiLogVolume?.source, "service-logs");
+  assert.equal(apiLogVolume?.read_only, undefined);
+  assert.equal(alloyLogVolume?.source, "service-logs");
+  assert.equal(alloyLogVolume?.read_only, true);
+  assert.equal(JSON.stringify(config.services.alloy.volumes).includes("docker.sock"), false);
+  const alloyConfig = readFileSync(path.join(projectRoot, "deploy/local/alloy/config.alloy"), "utf8");
+  assert.match(alloyConfig, /loki\.source\.file/);
+  assert.match(alloyConfig, /local\.file_match/);
+  assert.match(alloyConfig, /stage\.label_keep/);
+  assert.doesNotMatch(alloyConfig, /docker\.sock|discovery\.docker/);
+
   const apiEnvironment = config.services.api.environment;
   assert.equal(apiEnvironment.ENGINEER_PROVIDER_ENABLED, "false");
   assert.equal(apiEnvironment.ENGINEER_PROVIDER_URL, "");

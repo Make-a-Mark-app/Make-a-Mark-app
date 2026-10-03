@@ -27,7 +27,7 @@ The browser fixture and source-reviewed records are files, not volumes that must
 2. **Create the API image.** Run the compiled/server entry point with production settings. Add `/api/health` and `/metrics`; fail health only when the API itself cannot serve requests, not when an optional model is unavailable.
 3. **Define Compose networking and ports.** Name the project `cognizant-local`. Put services on a private network. Bind the configurable web port (default `8080`) and Grafana port (default `3000`) to loopback. Keep API, Loki, Prometheus, and Alloy APIs private by default.
 4. **Add startup health checks.** Make checks inspect app availability. Avoid hard dependency on the external LLM API for initial startup.
-5. **Add Alloy log collection.** Collect service stdout and send to Loki. Keep labels low-cardinality: service, environment, severity. Exclude question text, prompts, evidence passage content, simulated values, credentials, and user-controlled IDs.
+5. **Add privacy-safe Alloy log collection.** API requests emit allowlisted structured JSON to stdout and a shared source volume. Alloy reads the volume read-only and forwards to Loki without Docker daemon access. Rotate source logs at 10 MiB and keep three files total per service, including the active file. Keep labels low-cardinality: service, environment, severity. Exclude question text, prompts, request bodies, query strings, evidence passage content, selected context, simulated values, credentials, raw provider messages, and user-controlled IDs.
 6. **Provision useful dashboards.** Show API up/down, latency, status classes, validation failures, answer modes, provider error classes, and local log/metric retention. Never turn questions or record/session IDs into metric labels.
 7. **Add local secret handling.** `npm run setup:local` creates an ignored `.env` with a generated Grafana password and disabled provider flag; it preserves an existing file. Require a nonempty Grafana password, commit only the blank-password example, and pass provider variables only to `api`. Provider use requires explicit enablement and a valid HTTPS endpoint; the API validates configuration at startup and makes provider requests only after an eligible user submission. Health remains independent of provider credentials or availability.
 8. **Document start/stop/reset.** `docker compose up --build` starts services. `docker compose down` preserves observability volumes. A separate full reset removes Grafana/Loki/Prometheus state. Clear browser local storage separately. Versioned fixture and records must survive every reset.
@@ -47,7 +47,8 @@ The browser fixture and source-reviewed records are files, not volumes that must
 - `/api` works through Nginx; API, metrics, logs, and Grafana are not publicly exposed.
 - Grafana is loopback-only; health behavior is correct without a model credential.
 - Full reset clears only named local state and leaves versioned demo/evidence files intact.
-- Logs contain no excluded sensitive or user-specific data.
+- Logs contain no excluded sensitive or user-specific data; a sentinel appears neither in the source volume nor Loki.
+- Alloy has no Docker socket mount, can read but not write the shared source volume, and adds only service, environment, and severity labels.
 
 ## Handoff
 

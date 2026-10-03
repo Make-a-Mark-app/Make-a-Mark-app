@@ -438,20 +438,6 @@ function Library({ search, setSearch, topic, setTopic, topicTag, setTopicTag, pe
   onOpen: (record: LibraryRecord) => void;
   onNavigate: (screen: Screen) => void;
 }) {
-  search: string;
-  setSearch: (value: string) => void;
-  topic: string;
-  setTopic: (value: string) => void;
-  topicTag: string;
-  setTopicTag: (value: string) => void;
-  period: string;
-  setPeriod: (value: string) => void;
-  view: EvidenceView;
-  setView: (value: EvidenceView) => void;
-  records: LibraryRecord[];
-  onOpen: (record: LibraryRecord) => void;
-  onNavigate: (screen: Screen) => void;
-}) {
   const isReportedView = view === "reported";
   return (
     <div className="content-page library-page">

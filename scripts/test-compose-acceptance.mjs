@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 
 const webPort = process.env.WEB_PORT ?? "8080";
 const projectName = `make-a-mark-r1-acceptance-${process.pid}`;
@@ -6,6 +7,8 @@ const composeArgs = ["compose", "--project-name", projectName, "--env-file", ".e
 const environment = {
   ...process.env,
   WEB_PORT: webPort,
+  GRAFANA_PASSWORD: randomBytes(32).toString("base64url"),
+  ENGINEER_PROVIDER_ENABLED: "false",
   ENGINEER_PROVIDER_URL: "",
   ENGINEER_PROVIDER_API_KEY: "",
 };
@@ -20,7 +23,7 @@ let startupAttempted = false;
 try {
   startupAttempted = true;
   run("docker", [...composeArgs, "up", "--build", "--detach", "--wait", "--wait-timeout", "180"]);
-  run("npx", ["playwright", "test"], {
+  run("npx", ["playwright", "test", "tests/compose-acceptance.spec.ts"], {
     ...environment,
     PLAYWRIGHT_EXTERNAL: "1",
     PLAYWRIGHT_BASE_URL: `http://127.0.0.1:${webPort}`,

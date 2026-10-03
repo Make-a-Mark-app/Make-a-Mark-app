@@ -25,11 +25,11 @@ The browser fixture and source-reviewed records are files, not volumes that must
 
 1. **Create a production web image.** Build React/Vite assets, copy them into an Nginx image, and configure SPA fallback routing. Proxy `/api` to the Compose `api` service without exposing the API port publicly.
 2. **Create the API image.** Run the compiled/server entry point with production settings. Add `/api/health` and `/metrics`; fail health only when the API itself cannot serve requests, not when an optional model is unavailable.
-3. **Define Compose networking and ports.** Put services on a private network. Publish the web port; bind Grafana to loopback. Keep Loki and Prometheus APIs private by default.
+3. **Define Compose networking and ports.** Name the project `cognizant-local`. Put services on a private network. Bind the configurable web port (default `8080`) and Grafana port (default `3000`) to loopback. Keep API, Loki, Prometheus, and Alloy APIs private by default.
 4. **Add startup health checks.** Make checks inspect app availability. Avoid hard dependency on the external LLM API for initial startup.
 5. **Add Alloy log collection.** Collect service stdout and send to Loki. Keep labels low-cardinality: service, environment, severity. Exclude question text, prompts, evidence passage content, simulated values, credentials, and user-controlled IDs.
 6. **Provision useful dashboards.** Show API up/down, latency, status classes, validation failures, answer modes, provider error classes, and local log/metric retention. Never turn questions or record/session IDs into metric labels.
-7. **Add local secret handling.** Use ignored `.env` for local provider configuration; pass only API-required variables to `api`. Commit an example file without real secrets.
+7. **Add local secret handling.** `npm run setup:local` creates an ignored `.env` with a generated Grafana password and disabled provider flag; it preserves an existing file. Require a nonempty Grafana password, commit only the blank-password example, and pass provider variables only to `api`. Provider use requires explicit enablement and valid configuration; health remains independent of provider credentials.
 8. **Document start/stop/reset.** `docker compose up --build` starts services. `docker compose down` preserves observability volumes. A separate full reset removes Grafana/Loki/Prometheus state. Clear browser local storage separately. Versioned fixture and records must survive every reset.
 9. **Keep development hot reload separate.** If desired, use a development Compose override for Vite/tsx watch; the default demo profile should resemble the production build.
 
@@ -43,6 +43,7 @@ The browser fixture and source-reviewed records are files, not volumes that must
 ## Completion checks
 
 - Fresh start builds and reaches the app from one published web port.
+- `npm run test:compose:config` verifies resolved ports, private services, provider-variable placement, and Grafana password requirements; `npm run setup:local` is idempotent and creates a private local env file.
 - `/api` works through Nginx; API, metrics, logs, and Grafana are not publicly exposed.
 - Grafana is loopback-only; health behavior is correct without a model credential.
 - Full reset clears only named local state and leaves versioned demo/evidence files intact.

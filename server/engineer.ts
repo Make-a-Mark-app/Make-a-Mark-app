@@ -240,6 +240,10 @@ export async function createEngineerResponse(input: unknown, dependencies: Engin
     return noAnswer(request.category === "evidence" ? "unsupported" : "category_mismatch");
   }
 
+  if (request.category === "mission") {
+    return preparedResponse([], context.missionSummary, undefined, undefined, request.detailLevel);
+  }
+
   if (dependencies.provider) {
     let providerIssue: "unavailable" | "invalid" = "invalid";
     try {

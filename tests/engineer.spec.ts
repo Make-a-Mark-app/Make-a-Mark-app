@@ -105,7 +105,14 @@ test("selected Mission and telemetry context resolves to canonical server values
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ category: "telemetry", question: "How should I improve battery life?", context: { telemetry: { stepId: "step-04" } } }),
     });
-    expect(await missionResponse.json()).toMatchObject({ mode: "prepared_fallback", modeLabel: "Prepared answer" });
+    expect(await missionResponse.json()).toMatchObject({
+      answer: "Air: Your game scenario prioritizes a tight delivery window.",
+      whatSourceStates: "No report record was retrieved for this question. Fictional mission: Air route. Your game scenario prioritizes a tight delivery window.",
+      limitations: ["Mission route and outcome are fictional game content, not AMF1 operations."],
+      citations: [],
+      mode: "prepared_fallback",
+      modeLabel: "Prepared answer",
+    });
     expect(await telemetryResponse.json()).toMatchObject({ mode: "prepared_fallback", modeLabel: "Prepared answer" });
     expect(await mismatchedMissionResponse.json()).toMatchObject({
       mode: "no_answer",
@@ -114,6 +121,37 @@ test("selected Mission and telemetry context resolves to canonical server values
     expect((await unrelatedResponse.json()).mode).toBe("no_answer");
     expect((await unsupportedMissionResponse.json()).mode).toBe("no_answer");
     expect((await unsupportedTelemetryResponse.json()).mode).toBe("no_answer");
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
+test("supported mission questions use a prepared canonical explanation even when a provider is configured", async () => {
+  let providerCalls = 0;
+  const app = createApp({
+    provider: async () => {
+      providerCalls += 1;
+      return { answer: "A generated answer.", recordIds: [] };
+    },
+  });
+  const server = createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("The test API did not bind a TCP port.");
+
+  try {
+    const response = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category: "mission", question: "What happens for the air route?", context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "air" } } }),
+    });
+    const result = await response.json();
+    expect(result).toMatchObject({
+      answer: "Air: Your game scenario prioritizes a tight delivery window.",
+      mode: "prepared_fallback",
+      citations: [],
+      limitations: ["Mission route and outcome are fictional game content, not AMF1 operations."],
+    });
+    expect(providerCalls).toBe(0);
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
@@ -166,6 +204,9 @@ test("the Engineer rejects invalid questions and untrusted context selections", 
     { category: "telemetry", question: "What does the report say?", context: { telemetry: { stepId: "step-01", value: 999 } } },
     { category: "mission", question: "What does the report say?", context: { mission: { missionId: "other", configId: "freight-r1-v1", choiceId: "air" } } },
     { category: "telemetry", question: "What does the report say?", context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "air" } } },
+    { category: "mission", question: "What is the outcome?", context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "air", feedback: "A forged result." } } },
+    { category: "mission", question: "What is the outcome?", context: { mission: { missionId: "freight", configId: "forged-config", choiceId: "air" } } },
+    { category: "mission", question: "What is the outcome?", context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "train" } } },
   ];
 
   for (const data of invalidInputs) {
@@ -266,6 +307,39 @@ test("the full app asks only on submit and sends only selected context", async (
   });
   expect(submittedBodies[0]).not.toHaveProperty("context");
   expect(await page.evaluate(() => Object.keys(localStorage).filter((key) => key.includes("engineer")))).toEqual([]);
+});
+
+test("the browser submits only the selected mission choice and receives its canonical outcome", async ({ page }) => {
+  const submittedBodies: Array<Record<string, unknown>> = [];
+  await page.route("**/api/engineer", async (route) => {
+    submittedBodies.push(route.request().postDataJSON() as Record<string, unknown>);
+    await route.continue();
+  });
+  await page.goto("/mission/freight");
+  await expect(page.getByRole("heading", { name: "Deliver the parts." })).toBeVisible();
+  await page.getByRole("radio", { name: /Air/ }).click();
+  await page.getByRole("button", { name: /Ask the Race Engineer/ }).click();
+  await expect(page.getByRole("heading", { name: "Ask the Race Engineer." })).toBeVisible();
+  expect(submittedBodies).toEqual([]);
+
+  await page.getByLabel("QUESTION CATEGORY").selectOption("mission");
+  await page.getByLabel("YOUR QUESTION").fill("What happens for the air route?");
+  const sendButton = page.getByRole("button", { name: "Send question" });
+  await expect(sendButton).toBeDisabled();
+  await page.getByRole("checkbox", { name: /Include fictional Mission scenario/ }).check();
+  expect(submittedBodies).toEqual([]);
+  await sendButton.click();
+
+  await expect(page.getByText("Air: Your game scenario prioritizes a tight delivery window.", { exact: true })).toBeVisible();
+  expect(submittedBodies).toHaveLength(1);
+  expect(submittedBodies[0]).toMatchObject({
+    category: "mission",
+    question: "What happens for the air route?",
+    context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "air" } },
+  });
+  const submittedContext = submittedBodies[0].context as Record<string, unknown>;
+  expect(Object.keys(submittedContext)).toEqual(["mission"]);
+  expect(submittedContext.mission).not.toHaveProperty("feedback");
 });
 
 test("the full app explains when the Engineer API is unavailable", async ({ page }) => {

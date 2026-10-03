@@ -1,0 +1,86 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: local-capacity-and-availability
+    folder: Impact Drive
+    interval: 30s
+    rules:
+      - uid: local-api-down
+        title: API Down
+        condition: A
+        for: 1m
+        noDataState: Alerting
+        execErrState: Alerting
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: up{job="api"} < 1
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+        annotations:
+          summary: The local API scrape has been down for over one minute.
+        labels:
+          severity: warning
+      - uid: prometheus-storage-target
+        title: Prometheus Storage Target
+        condition: A
+        for: 5m
+        noDataState: OK
+        execErrState: Alerting
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: prometheus_tsdb_storage_blocks_bytes > 858993459
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+        annotations:
+          summary: Prometheus blocks are using at least 80% of the 1 GiB storage target.
+        labels:
+          severity: warning
+      - uid: loki-wal-disk-full
+        title: Loki WAL Disk Full
+        condition: A
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: increase(loki_ingester_wal_disk_full_failures_total[5m]) > 0
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+        annotations:
+          summary: Loki reported WAL disk pressure or a WAL write failure in the last five minutes.
+        labels:
+          severity: warning

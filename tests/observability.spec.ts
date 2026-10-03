@@ -87,10 +87,10 @@ test("operational logs and metrics expose only sanitized metadata across Enginee
     const entries = capturedLogs.filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>);
     expect(entries).toHaveLength(7);
     for (const entry of entries) {
-      expect(Object.keys(entry).every((key) => ["route", "method", "status_class", "duration_ms", "response_mode", "dependency_error_category"].includes(key))).toBeTruthy();
+      expect(Object.keys(entry).every((key) => ["service", "environment", "severity", "route", "method", "status", "duration_ms", "response_mode", "dependency_error_category"].includes(key))).toBeTruthy();
     }
-    expect(entries).toContainEqual(expect.objectContaining({ route: "/api/engineer", method: "POST", status_class: "2xx", response_mode: "prepared_fallback", dependency_error_category: "request_failed" }));
-    expect(entries.filter((entry) => entry.status_class === "4xx")).toHaveLength(3);
+    expect(entries).toContainEqual(expect.objectContaining({ route: "/api/engineer", method: "POST", status: "2xx", response_mode: "prepared_fallback", dependency_error_category: "request_failed" }));
+    expect(entries.filter((entry) => entry.status === "4xx")).toHaveLength(3);
     expect(metrics).toContain('impact_drive_http_requests_total{method="POST",route="/api/engineer",status_class="2xx"}');
     expect(metrics).toContain('impact_drive_engineer_provider_errors_total{category="request_failed"} 1');
     for (const privateValue of [

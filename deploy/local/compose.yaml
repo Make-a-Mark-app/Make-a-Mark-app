@@ -84,6 +84,7 @@ services:
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
       - service-logs:/var/log/cognizant:ro
+      - alloy-data:/var/lib/alloy/data
     depends_on:
       api:
         condition: service_healthy
@@ -141,3 +142,4 @@ volumes:
   loki-data:
   prometheus-data:
   service-logs:
+  alloy-data:

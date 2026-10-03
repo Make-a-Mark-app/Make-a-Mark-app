@@ -1,6 +1,6 @@
 # Make A Mark Impact Drive Component and Container Plan
 
-**Status:** Target local deployment for hackathon R1. The application components below describe the plan; Docker Compose and the observability stack are not currently configured.
+**Status:** The local R1 Compose stack is implemented in `deploy/local/compose.yaml`; the optional GCP deployment remains a plan.
 
 ## Recommendation
 
@@ -144,4 +144,4 @@ Use the [eight detailed build guides](build-plan/index.md) for actionable sub-st
 | 7. Add cloud secrets and monitoring (optional) | Grant least privilege, connect hosted model safely, inspect logs/errors, and configure service alerts | Vertex AI API and API service identity; Secret Manager only for static third-party keys; Cloud Logging, Monitoring, Error Reporting; optional Cloud Armor |
 | 8. Rehearse and reset | Verify states, no-provider fallback, source traceability, privacy-safe logs, accessibility, and reset instructions | Local Compose profile or deployed cloud profile; browser; Grafana locally or Cloud Console observability in cloud |
 
-The local profile is the default implementation target. The GCP profile is for a shareable hosted demo and does not change the no-account, no-AMF1-feed, file-backed R1 product scope. See the [R1 development plan](r1-development-plan.md) for acceptance checks. No Compose or cloud deployment files currently exist in the workspace.
+The local Compose profile is the default run path. The GCP profile is for a shareable hosted demo and does not change the no-account, no-AMF1-feed, file-backed R1 product scope. See the [R1 development plan](r1-development-plan.md) for acceptance checks. Cloud deployment files remain future work.

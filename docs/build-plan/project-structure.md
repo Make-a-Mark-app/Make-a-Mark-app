@@ -1,6 +1,6 @@
 # Make A Mark R1 Project Structure
 
-**Status:** Base folders only. The R1 features and deployment configuration are not implemented by this scaffold.
+**Status:** Initial project layout reference. R1 mission, evidence, telemetry, Race Engineer, and local Compose features have since been implemented.
 
 ## Existing application entry points
 
@@ -79,7 +79,7 @@ The scaffold keeps these entry points working while reserving clearer boundaries
 └── public/                         # existing static assets
 ```
 
-`.gitkeep` files only preserve these empty planned folders. They contain no app logic or credentials. `deploy/local/compose.yaml`, Dockerfiles, and service configuration are layout targets and have not been created yet.
+Some `.gitkeep` files preserve reserved directories. The local runtime configuration now lives under `deploy/local`; no real credentials are committed.
 
 ## Ownership boundaries
 

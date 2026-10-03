@@ -1,5 +1,6 @@
 # Step 5 Package Local Containers and Observability
 
+**Status:** Implemented by [`deploy/local/compose.yaml`](../../deploy/local/compose.yaml).
 **Depends on:** Steps 2–4.  
 **Outcome:** A developer can start and reset the whole local prototype consistently, while inspecting service health and sanitized logs.
 

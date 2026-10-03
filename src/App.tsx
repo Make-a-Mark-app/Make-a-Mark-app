@@ -6,6 +6,8 @@ import {
 import { evidenceRecords, illustrativeSamples, routeOptions, telemetrySnapshots, type EvidenceRecord, type IllustrativeSample, type RouteId } from "./data";
 import { EMPTY_DISCOVERY, hasDiscovery, parseDiscoveryRecap, type DiscoveryRecap } from "../shared/contracts/discovery";
 import { createMissionOutcome } from "../shared/contracts/mission";
+import type { EngineerCategory } from "../shared/contracts/engineer";
+import { evidenceTopicTags, lookupEvidence, normalizeLiteralSearchText } from "../shared/contracts/evidence";
 import { missionScenario } from "../shared/mission";
 
 type Screen = "home" | "world" | "mission" | "library" | "telemetry" | "engineer" | "summary" | "about";
@@ -17,6 +19,7 @@ type EngineerReply = {
   citations: Array<{ recordId: string; title: string; sourceTitle: string; sourceUrl: string; reportingPeriod: string | null; sourceLocation: string | null }>;
   relatedRecordIds: string[];
   mode: "grounded_ai" | "prepared_fallback" | "no_answer";
+  modeLabel: string;
 };
 type LibraryRecord = EvidenceRecord | IllustrativeSample;
 type EvidenceView = "reported" | "illustrative";
@@ -82,13 +85,16 @@ function App() {
   const [car, setCar] = useState({ x: 50, y: 30 });
   const [motionOn, setMotionOn] = useState(!window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [search, setSearch] = useState("");
-  const [topic, setTopic] = useState("All topics");
+  const [topic, setTopic] = useState("All pillars");
+  const [topicTag, setTopicTag] = useState("All topics");
+  const [period, setPeriod] = useState("All periods");
   const [evidenceView, setEvidenceView] = useState<EvidenceView>("reported");
   const [selectedRecord, setSelectedRecord] = useState<LibraryRecord | null>(() => {
     const id = window.location.pathname.startsWith("/library/") ? window.location.pathname.split("/")[2] : "";
     return findLibraryRecord(id);
   });
   const [question, setQuestion] = useState("");
+  const [engineerCategory, setEngineerCategory] = useState<EngineerCategory>("evidence");
   const [reply, setReply] = useState<EngineerReply | null>(null);
   const [asking, setAsking] = useState(false);
   const [detailLevel, setDetailLevel] = useState<"concise" | "detailed">("concise");
@@ -96,6 +102,9 @@ function App() {
   const [includeTelemetryContext, setIncludeTelemetryContext] = useState(false);
   const [status, setStatus] = useState("");
   const [telemetryIndex, setTelemetryIndex] = useState(0);
+  const engineerSubmissionReady = engineerCategory === "evidence"
+    || (engineerCategory === "mission" && includeMissionContext && Boolean(discovery.routeChoice))
+    || (engineerCategory === "telemetry" && includeTelemetryContext);
 
   useEffect(() => {
     try {
@@ -148,15 +157,24 @@ function App() {
   }, [screen, car.x, car.y]);
 
   const visibleRecords = useMemo(() => {
-    const records: LibraryRecord[] = evidenceView === "reported" ? evidenceRecords : illustrativeSamples;
+    if (evidenceView === "reported") return lookupEvidence(evidenceRecords, {
+      query: search,
+      ...(topic !== "All pillars" && { pillar: topic as "Environment" | "Belong" | "Community" }),
+      ...(topicTag !== "All topics" && { topicTag: topicTag as typeof evidenceTopicTags[number] }),
+      ...(period !== "All periods" && { period }),
+      limit: 10,
+    });
+    const records: LibraryRecord[] = illustrativeSamples;
+    const query = normalizeLiteralSearchText(search);
     return records.filter((record) => {
       const searchableText = isIllustrativeSample(record)
         ? `${record.title} ${record.summary} ${record.topic} ${record.claimType} ${record.source}`
         : `${record.title} ${record.claim} ${record.topic} ${record.claimType} ${record.source.title}`;
-      const matchesSearch = searchableText.toLowerCase().includes(search.toLowerCase());
-      return matchesSearch && (topic === "All topics" || record.topic === topic);
-    });
-  }, [evidenceView, search, topic]);
+      const words = normalizeLiteralSearchText(searchableText).split(" ");
+      const matchesSearch = !query || query.split(" ").every((word) => words.includes(word));
+      return matchesSearch && (topic === "All pillars" || record.topic === topic);
+    }).sort((a, b) => a.id.localeCompare(b.id, "en")).slice(0, 10);
+  }, [evidenceView, search, topic, topicTag, period]);
 
   function openRecord(record: LibraryRecord) {
     window.history.pushState({}, "", `/library/${record.id}`);
@@ -190,19 +208,20 @@ function App() {
 
   async function askEngineer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!question.trim()) return;
+    if (!question.trim() || !engineerSubmissionReady) return;
     setAsking(true);
     setReply(null);
     try {
       const response = await fetch("/api/engineer", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          category: engineerCategory,
           question: question.trim(),
           detailLevel,
-          ...((includeMissionContext && discovery.routeChoice) || includeTelemetryContext ? {
+          ...((engineerCategory === "mission" && includeMissionContext && discovery.routeChoice) || (engineerCategory === "telemetry" && includeTelemetryContext) ? {
             context: {
-              ...(includeMissionContext && discovery.routeChoice && { mission: { missionId: missionScenario.missionId, configId: missionScenario.configId, choiceId: discovery.routeChoice } }),
-              ...(includeTelemetryContext && { telemetry: { stepId: telemetrySnapshots[telemetryIndex].stepId } }),
+              ...(engineerCategory === "mission" && includeMissionContext && discovery.routeChoice && { mission: { missionId: missionScenario.missionId, configId: missionScenario.configId, choiceId: discovery.routeChoice } }),
+              ...(engineerCategory === "telemetry" && includeTelemetryContext && { telemetry: { stepId: telemetrySnapshots[telemetryIndex].stepId } }),
             },
           } : {}),
         }),
@@ -214,7 +233,7 @@ function App() {
         answer: "The Race Engineer API is unavailable, so I could not retrieve an approved record or selected-context explanation.",
         whatSourceStates: "No source record was retrieved for this request.",
         whatItMeans: "Try again when the local API is available. Unsupported questions are not answered from general model knowledge.",
-        limitations: ["API unavailable; no evidence or context was retrieved."], citations: [], relatedRecordIds: [], mode: "prepared_fallback",
+        limitations: ["API unavailable; no evidence or context was retrieved."], citations: [], relatedRecordIds: [], mode: "prepared_fallback", modeLabel: "API unavailable",
       });
     } finally { setAsking(false); }
   }
@@ -245,9 +264,9 @@ function App() {
         {screen === "home" && <Home />}
         {screen === "world" && <World car={car} moveCar={moveCar} found={discovery.foundToken} onFind={() => setDiscovery((d) => ({ ...d, foundToken: true, topics: d.topics.includes("Environment") ? d.topics : [...d.topics, "Environment"] }))} status={status} onNavigate={navigate} />}
         {screen === "mission" && <Mission discovery={discovery} onChoose={chooseRoute} onFinish={finishMission} onRetry={retryMission} onNavigate={navigate} status={status} />}
-        {screen === "library" && <Library search={search} setSearch={setSearch} topic={topic} setTopic={setTopic} view={evidenceView} setView={setEvidenceView} records={visibleRecords} onOpen={openRecord} onNavigate={navigate} />}
-        {screen === "telemetry" && <Telemetry index={telemetryIndex} onAdvance={() => setTelemetryIndex((index) => Math.min(index + 1, telemetrySnapshots.length - 1))} />}
-        {screen === "engineer" && <Engineer question={question} setQuestion={setQuestion} reply={reply} asking={asking} onSubmit={askEngineer} currentChoice={discovery.routeChoice} detailLevel={detailLevel} setDetailLevel={setDetailLevel} includeMissionContext={includeMissionContext} setIncludeMissionContext={setIncludeMissionContext} includeTelemetryContext={includeTelemetryContext} setIncludeTelemetryContext={setIncludeTelemetryContext} telemetrySnapshot={telemetrySnapshots[telemetryIndex]} />}
+        {screen === "library" && <Library search={search} setSearch={setSearch} topic={topic} setTopic={setTopic} topicTag={topicTag} setTopicTag={setTopicTag} period={period} setPeriod={setPeriod} view={evidenceView} setView={setEvidenceView} records={visibleRecords} onOpen={openRecord} onNavigate={navigate} />}
+        {screen === "telemetry" && <Telemetry index={telemetryIndex} onSelect={setTelemetryIndex} onAdvance={() => setTelemetryIndex((index) => Math.min(index + 1, telemetrySnapshots.length - 1))} />}
+        {screen === "engineer" && <Engineer question={question} setQuestion={setQuestion} category={engineerCategory} setCategory={setEngineerCategory} canSubmit={engineerSubmissionReady} reply={reply} asking={asking} onSubmit={askEngineer} currentChoice={discovery.routeChoice} detailLevel={detailLevel} setDetailLevel={setDetailLevel} includeMissionContext={includeMissionContext} setIncludeMissionContext={setIncludeMissionContext} includeTelemetryContext={includeTelemetryContext} setIncludeTelemetryContext={setIncludeTelemetryContext} telemetrySnapshot={telemetrySnapshots[telemetryIndex]} />}
         {screen === "summary" && <Summary discovery={discovery} onNavigate={navigate} onClear={clearDiscoveries} status={status} />}
         {screen === "about" && <TrustGuide onNavigate={navigate} />}
       </main>
@@ -262,7 +281,7 @@ function App() {
   );
 }
 
-function Telemetry({ index, onAdvance }: { index: number; onAdvance: () => void }) {
+function Telemetry({ index, onSelect, onAdvance }: { index: number; onSelect: (index: number) => void; onAdvance: () => void }) {
   const snapshot = telemetrySnapshots[index];
   const statusLabel = snapshot.status[0].toUpperCase() + snapshot.status.slice(1);
   return (
@@ -289,11 +308,16 @@ function Telemetry({ index, onAdvance }: { index: number; onAdvance: () => void 
             <p className={signal.value === null ? "telemetry-value telemetry-value-missing" : "telemetry-value"}>
               {signal.value === null ? <>Unavailable<span className="telemetry-unit"> · {signal.unit}</span></> : <>{signal.value} <span className="telemetry-unit">{signal.unit}</span></>}
             </p>
+            <p className="telemetry-signal-meta">{signal.valueType === "integer" ? "Integer" : "Number"} · {signal.unit}</p>
+            <p className="telemetry-interpretation">{signal.interpretation}</p>
           </article>
         ))}
       </div>
       <div className="telemetry-controls">
-        <p>Advance manually through the prepared sequence. No timestamps or values are generated from your device clock.</p>
+        <div className="telemetry-state-controls" role="group" aria-label="Select simulated feed state">
+          {telemetrySnapshots.map((item, itemIndex) => <button key={item.stepId} type="button" aria-pressed={itemIndex === index} onClick={() => onSelect(itemIndex)}>{item.status[0].toUpperCase() + item.status.slice(1)}</button>)}
+        </div>
+        <p>Choose any prepared state directly. No timestamps or values are generated from your device clock.</p>
         <button className="button button-primary" onClick={onAdvance} disabled={index === telemetrySnapshots.length - 1}>Next snapshot <ArrowRight size={17} /></button>
       </div>
     </section>
@@ -399,11 +423,29 @@ function Mission({ discovery, onChoose, onFinish, onRetry, onNavigate, status }:
   );
 }
 
-function Library({ search, setSearch, topic, setTopic, view, setView, records, onOpen, onNavigate }: {
+function Library({ search, setSearch, topic, setTopic, topicTag, setTopicTag, period, setPeriod, view, setView, records, onOpen, onNavigate }: {
   search: string;
   setSearch: (value: string) => void;
   topic: string;
   setTopic: (value: string) => void;
+  topicTag: string;
+  setTopicTag: (value: string) => void;
+  period: string;
+  setPeriod: (value: string) => void;
+  view: EvidenceView;
+  setView: (value: EvidenceView) => void;
+  records: LibraryRecord[];
+  onOpen: (record: LibraryRecord) => void;
+  onNavigate: (screen: Screen) => void;
+}) {
+  search: string;
+  setSearch: (value: string) => void;
+  topic: string;
+  setTopic: (value: string) => void;
+  topicTag: string;
+  setTopicTag: (value: string) => void;
+  period: string;
+  setPeriod: (value: string) => void;
   view: EvidenceView;
   setView: (value: EvidenceView) => void;
   records: LibraryRecord[];
@@ -431,7 +473,7 @@ function Library({ search, setSearch, topic, setTopic, view, setView, records, o
       ) : (
         <>
           {!isReportedView && <p className="sample-explainer">Illustrative samples are examples, not reported claims. Illustrative demo data — not live AMF1 data or a measured impact result.</p>}
-          <div className="library-toolbar"><label className="search-field"><Search size={17} /><span className="sr-only">Search evidence library</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search topics, terms, or claim types" /></label><label className="filter-select"><span className="sr-only">Filter by topic</span><select value={topic} onChange={(e) => setTopic(e.target.value)}><option>All topics</option><option>Environment</option><option>Belong</option><option>Community</option><option>Governance</option></select><ChevronDown size={15} /></label></div>
+          <div className="library-toolbar"><label className="search-field"><Search size={17} /><span className="sr-only">Search evidence library</span><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Literal search across reviewed claims" /></label><label className="filter-select"><span className="sr-only">Filter by pillar</span><select value={topic} onChange={(e) => setTopic(e.target.value)}><option>All pillars</option><option>Environment</option><option>Belong</option><option>Community</option></select><ChevronDown size={15} /></label>{isReportedView && <><label className="filter-select"><span className="sr-only">Filter by controlled topic</span><select value={topicTag} onChange={(e) => setTopicTag(e.target.value)}><option>All topics</option>{evidenceTopicTags.map((tag) => <option key={tag} value={tag}>{tag.replaceAll("-", " ")}</option>)}</select><ChevronDown size={15} /></label><label className="filter-select"><span className="sr-only">Filter by reporting period</span><select value={period} onChange={(e) => setPeriod(e.target.value)}><option>All periods</option><option value="2025">2025</option></select><ChevronDown size={15} /></label></>}</div>
           <div className="library-count"><span>{records.length} {isReportedView ? "REPORTED CLAIM" : "ILLUSTRATIVE SAMPLE"}{records.length === 1 ? "" : "S"}</span><span>{isReportedView ? "REVIEWED CLAIMS ONLY" : "NOT REPORTED IMPACT"}</span></div>
           <div className="evidence-list">{records.length ? records.map((record, index) => {
             const illustrative = isIllustrativeSample(record);
@@ -441,9 +483,9 @@ function Library({ search, setSearch, topic, setTopic, view, setView, records, o
             const source = illustrative ? record.source : `${record.source.title} · ${record.source.edition}`;
             const review = illustrative ? record.review : "Source-reviewed for this prototype";
             return <article className="evidence-row" key={record.id}>
-              <div className="record-index">0{index + 1}</div><div className="record-main"><div className="record-meta"><span>{record.topic}</span><b>·</b><span>{claimType}</span></div><h2>{record.title}</h2><p>{summary}</p><button className="text-link" aria-label={`Open record: ${record.title}`} onClick={() => onOpen(record)}>Open record <ArrowRight size={15} /></button></div><div className="record-source"><span className="review-label"><span /> {review}</span><span>{period}</span><span>{source}</span></div><ArrowUpRight className="record-arrow" size={17} />
+              <div className="record-index">0{index + 1}</div><div className="record-main"><div className="record-meta"><span>{record.topic}</span><b>·</b><span>{claimType}</span>{!illustrative && <><b>·</b><span>{record.topicTag.replaceAll("-", " ")}</span></>}</div><h2>{record.title}</h2><p>{summary}</p><button className="text-link" aria-label={`Open record: ${record.title}`} onClick={() => onOpen(record)}>Open record <ArrowRight size={15} /></button></div><div className="record-source"><span className="review-label"><span /> {review}</span><span>{period}</span><span>{source}</span>{!illustrative && <><span>{record.source.location ?? "Source location not stated"}</span><a href={record.source.url} target="_blank" rel="noreferrer">Open source report</a><small>Limitations: {record.limitations.join(" ")}</small></>}</div><ArrowUpRight className="record-arrow" size={17} />
             </article>;
-          }) : <div className="empty-results"><Search size={20} /><h2>No records match</h2><p>Try a different search or topic.</p></div>}</div>
+          }) : <div className="empty-results"><Search size={20} /><h2>{search.trim() ? "Not enough evidence" : "No records match"}</h2><p>{search.trim() ? "No reviewed record supports this literal search." : "Try a different pillar, topic, or period."}</p></div>}</div>
           <div className="library-method"><span>01 — CONTENT STANDARD</span><p>Reporting period and publication date stay distinct. Targets, commitments, outputs, and outcomes keep their own labels.</p><span className="method-mark">MM</span></div>
         </>
       )}
@@ -451,9 +493,12 @@ function Library({ search, setSearch, topic, setTopic, view, setView, records, o
   );
 }
 
-function Engineer({ question, setQuestion, reply, asking, onSubmit, currentChoice, detailLevel, setDetailLevel, includeMissionContext, setIncludeMissionContext, includeTelemetryContext, setIncludeTelemetryContext, telemetrySnapshot }: {
+function Engineer({ question, setQuestion, category, setCategory, canSubmit, reply, asking, onSubmit, currentChoice, detailLevel, setDetailLevel, includeMissionContext, setIncludeMissionContext, includeTelemetryContext, setIncludeTelemetryContext, telemetrySnapshot }: {
   question: string;
   setQuestion: (value: string) => void;
+  category: EngineerCategory;
+  setCategory: (value: EngineerCategory) => void;
+  canSubmit: boolean;
   reply: EngineerReply | null;
   asking: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -466,10 +511,8 @@ function Engineer({ question, setQuestion, reply, asking, onSubmit, currentChoic
   setIncludeTelemetryContext: (value: boolean) => void;
   telemetrySnapshot: typeof telemetrySnapshots[number];
 }) {
-  const sampleQuestions = ["What does the solar generation figure measure?", "How many nationalities were represented?", "Is the solar figure a team-wide renewable percentage?"];
-  const modeLabel = reply?.mode === "grounded_ai" ? "GROUNDED EXPLANATION · CITATIONS VALIDATED"
-    : reply?.mode === "no_answer" ? "NO ANSWER · LIMITED TO APPROVED CONTEXT"
-      : "PREPARED RESPONSE · BOUNDED CONTEXT";
+  const sampleQuestions = ["What is the travel and logistics emissions reduction?", "What did the Aleto cohort feel about its professional network?", "How many students engaged during Make A Mark Week?"];
+  const modeLabel = reply?.modeLabel ?? "";
   return (
     <div className="content-page engineer-page">
       <div className="engineer-header"><span className="engineer-emblem"><Sparkles size={20} /></span><div><p className="overline"><span /> OPTIONAL EXPLANATION</p><h1>Ask the Race Engineer.</h1><p>Ask about source-reviewed records or context you choose to include. Unsupported factual questions receive a clear limitation.</p></div></div>
@@ -479,16 +522,22 @@ function Engineer({ question, setQuestion, reply, asking, onSubmit, currentChoic
         {!reply && <div className="question-suggestions"><span>TRY A QUESTION</span>{sampleQuestions.map((sample) => <button key={sample} onClick={() => setQuestion(sample)}>{sample}<ArrowUpRight size={14} /></button>)}</div>}
         {reply && <div className="engineer-answer" aria-live="polite"><div className="answer-mode"><span /> {modeLabel}</div><p className="answer-text">{reply.answer}</p><div className="answer-detail"><span>{reply.mode === "no_answer" ? "GROUNDING CHECK" : reply.citations.length ? "WHAT THE SOURCE SAYS" : "WHAT THE SELECTED CONTEXT SAYS"}</span><p>{reply.whatSourceStates}</p></div><div className="answer-detail"><span>WHAT IT MEANS</span><p>{reply.whatItMeans}</p></div>{reply.citations.length > 0 && <div className="answer-detail"><span>CITED RECORDS</span><ul className="engineer-citations">{reply.citations.map((citation) => <li key={citation.recordId}><a href={citation.sourceUrl} target="_blank" rel="noreferrer">{citation.title} · {citation.sourceTitle}</a><small>{citation.reportingPeriod ?? "Reporting period not stated"}{citation.sourceLocation ? " · " + citation.sourceLocation : ""}</small></li>)}</ul></div>}{reply.limitations.map((limitation) => <div className="limitation-note" key={limitation}><Info size={14} />{limitation}</div>)}</div>}
         <form className="question-form" onSubmit={onSubmit}>
+          <label htmlFor="engineer-category">QUESTION CATEGORY</label>
+          <select id="engineer-category" value={category} onChange={(event) => {
+            setCategory(event.target.value as EngineerCategory);
+            setIncludeMissionContext(false);
+            setIncludeTelemetryContext(false);
+          }}><option value="evidence">Reviewed evidence</option><option value="mission">Fictional mission</option><option value="telemetry">Simulated snapshot</option></select>
           <label htmlFor="engineer-question">YOUR QUESTION</label>
-          <div><input id="engineer-question" value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={500} placeholder="Ask about a report record or selected context…" /><button type="submit" disabled={asking || !question.trim()} aria-label="Send question">{asking ? <span className="spinner" /> : <ArrowRight size={18} />}</button></div>
+          <div><input id="engineer-question" value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={500} placeholder="Ask about a report record or selected context…" /><button type="submit" disabled={asking || !question.trim() || !canSubmit} aria-label="Send question">{asking ? <span className="spinner" /> : <ArrowRight size={18} />}</button></div>
           <small>Up to 500 characters. Questions are not saved on the server.</small>
           <label className="detail-level-label" htmlFor="engineer-detail">ANSWER DETAIL</label>
           <select id="engineer-detail" value={detailLevel} onChange={(event) => setDetailLevel(event.target.value as "concise" | "detailed")}><option value="concise">Concise</option><option value="detailed">Detailed</option></select>
-          <fieldset className="engineer-context-options">
-            <legend>OPTIONAL CONTEXT · SENT ONLY WHEN SELECTED</legend>
-            <label><input type="checkbox" checked={includeMissionContext} disabled={!currentChoice} onChange={(event) => setIncludeMissionContext(event.target.checked)} /> Include fictional Mission scenario {currentChoice ? "· " + routeOptions.find((route) => route.id === currentChoice)?.name : "· choose a route first"}</label>
-            <label><input type="checkbox" checked={includeTelemetryContext} onChange={(event) => setIncludeTelemetryContext(event.target.checked)} /> Include simulated snapshot · {telemetrySnapshot.stepId} ({telemetrySnapshot.status})</label>
-          </fieldset>
+          {category !== "evidence" && <fieldset className="engineer-context-options">
+            <legend>SELECTED CONTEXT · SENT ONLY WHEN SUBMITTED</legend>
+            {category === "mission" && <label><input type="checkbox" checked={includeMissionContext} disabled={!currentChoice} onChange={(event) => setIncludeMissionContext(event.target.checked)} /> Include fictional Mission scenario {currentChoice ? "· " + routeOptions.find((route) => route.id === currentChoice)?.name : "· choose a route first"}</label>}
+            {category === "telemetry" && <label><input type="checkbox" checked={includeTelemetryContext} onChange={(event) => setIncludeTelemetryContext(event.target.checked)} /> Include simulated snapshot · {telemetrySnapshot.stepId} ({telemetrySnapshot.status})</label>}
+          </fieldset>}
         </form>
       </section><aside className="engineer-side"><div className="current-context"><span>MISSION CONTEXT</span><h2>Freight choices</h2><p>{currentChoice ? "Selected route: " + routeOptions.find((r) => r.id === currentChoice)?.name + ". It is sent only if you select its context above." : "Choose a route to make fictional Mission context available."}</p><div className="context-rule" /><span className="context-mark">01 <b>/</b> 01</span></div><div className="grounding-card"><ShieldCheck size={18} /><h3>Evidence first.</h3><p>Only reviewed records can be cited as reported impact. Mission and simulated snapshot details stay separate.</p><span>NO UNSOURCED FACTS</span></div></aside></div>
     </div>
@@ -596,7 +645,7 @@ function EvidenceDialog({ record, onClose }: { record: LibraryRecord; onClose: (
   }
 
   const value = record.value === undefined ? "Not stated" : `${record.valueDisplay ?? record.value}${record.unit ? ` ${record.unit}` : ""}`;
-  return <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}><section className="evidence-dialog" role="dialog" aria-modal="true" aria-labelledby="record-title"><button ref={closeButton} className="dialog-close icon-button" aria-label="Close record" onClick={onClose}><X size={19} /></button><p className="overline"><span /> SOURCE-REVIEWED CLAIM / {record.topic.toUpperCase()}</p><h2 id="record-title">{record.title}</h2><span className="review-label large"><span /> Source-reviewed for this prototype</span><p className="dialog-summary">{record.claim}</p><div className="record-fields"><div><span>CLAIM TYPE</span><strong>{record.claimType.replace("_", " ")}</strong></div><div><span>REPORTED VALUE</span><strong>{value}</strong></div><div><span>REPORTING PERIOD</span><strong>{record.reportingPeriod ?? "No reporting period stated"}</strong></div><div><span>SOURCE TITLE / EDITION</span><strong>{record.source.title} · {record.source.edition}</strong></div><div><span>PUBLICATION DATE</span><strong>{record.source.publicationDate ?? "Not stated in source"}</strong></div><div><span>SOURCE LOCATION</span><strong>{record.source.location ?? "Not stated in source"}</strong></div></div><div className="dialog-limits"><Info size={16} /><div><strong>Review note</strong><p>{record.reviewNote}</p><strong>Limitations</strong>{record.limitations.map((limitation) => <p key={limitation}>{limitation}</p>)}</div></div><p className="dialog-footnote"><a href={record.source.url} target="_blank" rel="noreferrer">Open source report</a> · This source does not imply AMF1 endorsement of this app.</p></section></div>;
+  return <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}><section className="evidence-dialog" role="dialog" aria-modal="true" aria-labelledby="record-title"><button ref={closeButton} className="dialog-close icon-button" aria-label="Close record" onClick={onClose}><X size={19} /></button><p className="overline"><span /> SOURCE-REVIEWED CLAIM / {record.topic.toUpperCase()}</p><h2 id="record-title">{record.title}</h2><span className="review-label large"><span /> Source-reviewed for this prototype</span><p className="dialog-summary">{record.claim}</p><div className="record-fields"><div><span>CONTROLLED TOPIC</span><strong>{record.topicTag.replaceAll("-", " ")}</strong></div><div><span>CLAIM TYPE</span><strong>{record.claimType.replace("_", " ")}</strong></div><div><span>REPORTED VALUE</span><strong>{value}</strong></div><div><span>REPORTING PERIOD</span><strong>{record.reportingPeriod ?? "Not stated in source"}</strong></div><div><span>SOURCE TITLE / EDITION</span><strong>{record.source.title} · {record.source.edition}</strong></div><div><span>PUBLICATION DATE</span><strong>{record.source.publicationDate}</strong></div><div><span>SOURCE LOCATION</span><strong>{record.source.location ?? "Not stated in source"}</strong></div><div><span>REVIEWED BY / DATE</span><strong>{record.reviewer} · {record.reviewDate}</strong></div><div><span>REVIEW STATE</span><strong>{record.reviewState.replace("_", " ")}</strong></div></div><div className="dialog-limits"><Info size={16} /><div><strong>Review note</strong><p>{record.reviewNote}</p><strong>Correction history</strong>{record.history.length ? record.history.map((entry, index) => <p key={`${entry.date}-${index}`}>{entry.date} · {entry.reviewState.replace("_", " ")}: {entry.claim}{entry.value !== undefined ? ` — ${entry.valueDisplay ?? entry.value} ${entry.unit ?? ""}` : ""}. {entry.note}</p>) : <p>No prior corrections recorded.</p>}<strong>Limitations</strong>{record.limitations.map((limitation) => <p key={limitation}>{limitation}</p>)}</div></div><p className="dialog-footnote"><a href={record.source.url} target="_blank" rel="noreferrer">Open source report</a> · This source does not imply AMF1 endorsement of this app.</p></section></div>;
 }
 
 function PlaneIcon() { return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="m4 18 10-2 5-10c.5-1 2.3-.7 2.2.5L20 15l7-1.6c1.5-.3 2.2 1.5.8 2.2L20 20l-2 7c-.3 1.1-2 1.1-2.3 0L14 21l-7 1.2c-1.4.2-2-1.6-.7-2.2L12 17l-7-1c-1.4-.2-1.4-2.2 0-2l8 1.2" fill="currentColor" /></svg>; }

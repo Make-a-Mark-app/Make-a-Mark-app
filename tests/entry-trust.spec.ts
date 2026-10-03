@@ -21,11 +21,11 @@ test("visitors can directly enter the mission, reviewed evidence, and trust guid
   await expect(page.getByRole("heading", { name: "Deliver the parts." })).toBeVisible();
   await page.goto("/evidence");
   await expect(page.getByRole("heading", { name: "Evidence library" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Renewable solar generation" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Travel and logistics emissions reduction" })).toBeVisible();
   await expect(page.getByText("Freight and logistics evidence")).toHaveCount(0);
   await page.getByRole("button", { name: "Illustrative samples" }).click();
   await expect(page.getByText("Illustrative demo data — not live AMF1 data or a measured impact result.")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Renewable solar generation" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Travel and logistics emissions reduction" })).toHaveCount(0);
   await page.goto("/method");
   await expect(page.getByRole("heading", { name: "Know what each value means." })).toBeVisible();
   expect(apiRequests).toBe(0);

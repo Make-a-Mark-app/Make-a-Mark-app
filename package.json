@@ -7,7 +7,9 @@
     "dev": "concurrently -k \"vite --host 0.0.0.0\" \"tsx watch server/index.ts\"",
     "build": "tsc -b && vite build",
     "test:e2e": "playwright test",
+    "test:e2e:compose": "node scripts/test-compose-acceptance.mjs",
     "start": "tsx server/index.ts",
+    "build:server": "tsc -p tsconfig.server.build.json",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

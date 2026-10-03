@@ -1,0 +1,173 @@
+{
+  "version": "evidence-r1-v2",
+  "records": [
+    {
+      "id": "bel-2025-aleto-network",
+      "title": "Aleto cohort: professional network",
+      "topic": "Belong",
+      "topicTag": "aleto-network",
+      "claim": "93% of the 2025 Aleto group felt they grew their professional network.",
+      "claimType": "report_result",
+      "value": 93,
+      "valueDisplay": "93",
+      "unit": "% of group (self-reported)",
+      "reportingPeriod": "2025 Aleto cohort; programme ran over nine months; exact dates not stated",
+      "source": {
+        "title": "2025 Make A Mark Report",
+        "edition": "2025",
+        "publicationDate": "Not stated in source",
+        "url": "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2025.pdf#page=9",
+        "location": "Printed p. 10 (PDF p. 9), Aleto Leadership Programme; footnote 4 points to the 2024–2025 Aleto Foundation impact report"
+      },
+      "reviewState": "reviewed",
+      "reviewNote": "The report describes perceived growth, not an independently measured increase. Its footnote attributes the data to the Aston Martin Aramco Formula One Team x Aleto Foundation Leadership Programme Impact Report 2024–2025.",
+      "reviewer": "Codex source review",
+      "reviewDate": "2026-10-01",
+      "history": [],
+      "limitations": [
+        "The denominator, response count, survey question, and survey method are not stated in this report.",
+        "Preserve the participant-reported qualifier; do not describe this as objectively measured network growth."
+      ]
+    },
+    {
+      "id": "bel-2025-aleto-skills-confidence",
+      "title": "Aleto cohort: skills and confidence",
+      "topic": "Belong",
+      "topicTag": "aleto-skills-confidence",
+      "claim": "90% of the 2025 Aleto group felt they grew their leadership skills, public speaking and confidence.",
+      "claimType": "report_result",
+      "value": 90,
+      "valueDisplay": "90",
+      "unit": "% of group (self-reported)",
+      "reportingPeriod": "2025 Aleto cohort; programme ran over nine months; exact dates not stated",
+      "source": {
+        "title": "2025 Make A Mark Report",
+        "edition": "2025",
+        "publicationDate": "Not stated in source",
+        "url": "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2025.pdf#page=9",
+        "location": "Printed p. 10 (PDF p. 9), Aleto Leadership Programme; footnote 4 points to the 2024–2025 Aleto Foundation impact report"
+      },
+      "reviewState": "reviewed",
+      "reviewNote": "The report combines leadership skills, public speaking and confidence in one participant-reported outcome. Its footnote attributes the data to the Aston Martin Aramco Formula One Team x Aleto Foundation Leadership Programme Impact Report 2024–2025.",
+      "reviewer": "Codex source review",
+      "reviewDate": "2026-10-01",
+      "history": [],
+      "limitations": [
+        "The denominator, response count, survey question, and survey method are not stated in this report.",
+        "The report does not support separate percentages for leadership, public speaking, or confidence."
+      ]
+    },
+    {
+      "id": "com-2025-make-a-mark-week-organisations",
+      "title": "Schools and community groups reached",
+      "topic": "Community",
+      "topicTag": "education-community-organisations",
+      "claim": "The fourth annual Make A Mark Week engaged 257 students across 14 schools and community groups.",
+      "claimType": "report_result",
+      "value": 14,
+      "valueDisplay": "14",
+      "unit": "schools and community groups combined",
+      "reportingPeriod": "2025 Make A Mark Week; exact event dates not stated",
+      "source": {
+        "title": "2025 Make A Mark Report",
+        "edition": "2025",
+        "publicationDate": "Not stated in source",
+        "url": "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2025.pdf#page=10",
+        "location": "Printed p. 11 (PDF p. 10), Make A Mark Week"
+      },
+      "reviewState": "reviewed",
+      "reviewNote": "The report gives one combined count across schools and community groups.",
+      "reviewer": "Codex source review",
+      "reviewDate": "2026-10-01",
+      "history": [],
+      "limitations": [
+        "The report does not split the 14 into separate school and community-group counts.",
+        "Do not describe this as 14 schools plus additional community groups."
+      ]
+    },
+    {
+      "id": "com-2025-make-a-mark-week-students",
+      "title": "Students engaged at Make A Mark Week",
+      "topic": "Community",
+      "topicTag": "student-reach",
+      "claim": "The fourth annual Make A Mark Week engaged 257 students in STEM and career development workshops.",
+      "claimType": "report_result",
+      "value": 257,
+      "valueDisplay": "257",
+      "unit": "students",
+      "reportingPeriod": "2025 Make A Mark Week; exact event dates not stated",
+      "source": {
+        "title": "2025 Make A Mark Report",
+        "edition": "2025",
+        "publicationDate": "Not stated in source",
+        "url": "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2025.pdf#page=10",
+        "location": "Printed p. 11 (PDF p. 10), Make A Mark Week"
+      },
+      "reviewState": "reviewed",
+      "reviewNote": "The report describes two full days of activity and says the workshops were delivered with partner organisations.",
+      "reviewer": "Codex source review",
+      "reviewDate": "2026-10-01",
+      "history": [],
+      "limitations": [
+        "The report does not explain whether this is a unique-student count, attendance count, or another participation measure.",
+        "This reach figure does not measure learning or later career outcomes."
+      ]
+    },
+    {
+      "id": "env-2025-travel-logistics-avoided",
+      "title": "Avoided air freight emissions",
+      "topic": "Environment",
+      "topicTag": "travel-logistics-avoided",
+      "claim": "The report states that 1,188 tCO₂e were avoided, equivalent to 88,153 laps around Silverstone Circuit.",
+      "claimType": "report_result",
+      "value": 1188,
+      "valueDisplay": "1,188",
+      "unit": "tCO₂e avoided",
+      "reportingPeriod": "2025 (exact measurement dates not stated)",
+      "source": {
+        "title": "2025 Make A Mark Report",
+        "edition": "2025",
+        "publicationDate": "Not stated in source",
+        "url": "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2025.pdf#page=8",
+        "location": "Printed p. 9 (PDF p. 8), footnote 2; methodology also printed p. 24, footnote 14"
+      },
+      "reviewState": "reviewed",
+      "reviewNote": "Footnote 2 attributes avoided emissions to SAF certificates and says they were verified by the report's limited assurance. Footnote 14 describes air freight calculation using 2025 DEFRA conversion factors and reductions attributed from 2025 SAF certificates.",
+      "reviewer": "Codex source review",
+      "reviewDate": "2026-10-01",
+      "history": [],
+      "limitations": [
+        "The reported value is avoided emissions and should not be recast as a measured inventory reduction.",
+        "The Silverstone-lap equivalence uses 2025 DEFRA petrol conversion factors and circuit lap distance."
+      ]
+    },
+    {
+      "id": "env-2025-travel-logistics-reduction",
+      "title": "Travel and logistics emissions reduction",
+      "topic": "Environment",
+      "topicTag": "travel-logistics-reduction",
+      "claim": "AMF1 reports a 14% reduction in travel and logistics emissions through more efficient logistics and investment in Sustainable Aviation Fuel (SAF).",
+      "claimType": "report_result",
+      "value": 14,
+      "valueDisplay": "14",
+      "unit": "% reduction",
+      "reportingPeriod": "2025 results (exact measurement dates and comparison baseline not stated)",
+      "source": {
+        "title": "2025 Make A Mark Report",
+        "edition": "2025",
+        "publicationDate": "Not stated in source",
+        "url": "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2025.pdf#page=8",
+        "location": "Printed p. 9 (PDF p. 8), 2025 impact highlights; see also printed p. 24, footnote 14"
+      },
+      "reviewState": "reviewed",
+      "reviewNote": "The report attributes the reduction to more efficient logistics and SAF investment.",
+      "reviewer": "Codex source review",
+      "reviewDate": "2026-10-01",
+      "history": [],
+      "limitations": [
+        "The report does not identify the comparator period or full calculation boundary for the 14% headline.",
+        "Do not present this as a reduction in all team emissions or all Scope 3 emissions."
+      ]
+    }
+  ]
+}

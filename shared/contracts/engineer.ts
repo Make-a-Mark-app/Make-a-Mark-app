@@ -1,8 +1,10 @@
 import type { RouteId } from "./mission.js";
 
 export type EngineerDetailLevel = "concise" | "detailed";
+export type EngineerCategory = "evidence" | "mission" | "telemetry";
 
 export type EngineerRequest = {
+  category: EngineerCategory;
   question: string;
   detailLevel: EngineerDetailLevel;
   context?: {
@@ -18,14 +20,15 @@ const hasOnlyKeys = (value: Record<string, unknown>, keys: string[]) =>
   Object.keys(value).every((key) => keys.includes(key));
 
 export function parseEngineerRequest(value: unknown): EngineerRequest | null {
-  if (!isObject(value) || !hasOnlyKeys(value, ["question", "detailLevel", "context"])) return null;
+  if (!isObject(value) || !hasOnlyKeys(value, ["category", "question", "detailLevel", "context"])) return null;
+  if (value.category !== "evidence" && value.category !== "mission" && value.category !== "telemetry") return null;
   if (typeof value.question !== "string") return null;
   const question = value.question.trim();
   if (question.length < 1 || question.length > 500) return null;
   const detailLevel = value.detailLevel === undefined ? "concise" : value.detailLevel;
   if (detailLevel !== "concise" && detailLevel !== "detailed") return null;
 
-  if (value.context === undefined) return { question, detailLevel };
+  if (value.context === undefined) return value.category === "evidence" ? { category: value.category, question, detailLevel } : null;
   if (!isObject(value.context) || !hasOnlyKeys(value.context, ["mission", "telemetry"])) return null;
   const context: NonNullable<EngineerRequest["context"]> = {};
 
@@ -42,6 +45,11 @@ export function parseEngineerRequest(value: unknown): EngineerRequest | null {
     context.telemetry = { stepId: telemetry.stepId };
   }
 
-  if (Object.keys(context).length === 0) return null;
-  return { question, detailLevel, context };
+  const contextCategories = Object.keys(context);
+  if (
+    (value.category === "evidence" && contextCategories.length > 0) ||
+    (value.category === "mission" && (contextCategories.length !== 1 || !context.mission)) ||
+    (value.category === "telemetry" && (contextCategories.length !== 1 || !context.telemetry))
+  ) return null;
+  return { category: value.category, question, detailLevel, context };
 }

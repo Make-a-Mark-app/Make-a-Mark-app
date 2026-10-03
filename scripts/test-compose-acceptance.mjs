@@ -2,11 +2,13 @@ import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 
 const webPort = process.env.WEB_PORT ?? "8080";
+const grafanaPort = process.env.GRAFANA_PORT ?? "3000";
 const projectName = `make-a-mark-r1-acceptance-${process.pid}`;
 const composeArgs = ["compose", "--project-name", projectName, "--env-file", ".env.example", "-f", "deploy/local/compose.yaml"];
 const environment = {
   ...process.env,
   WEB_PORT: webPort,
+  GRAFANA_PORT: grafanaPort,
   GRAFANA_PASSWORD: randomBytes(32).toString("base64url"),
   ENGINEER_PROVIDER_ENABLED: "false",
   ENGINEER_PROVIDER_URL: "",
@@ -26,10 +28,29 @@ function capture(command, args, env = environment) {
   return result.stdout;
 }
 
+async function grafanaJson(pathname) {
+  const credentials = Buffer.from(`admin:${environment.GRAFANA_PASSWORD}`).toString("base64");
+  const response = await fetch(`http://127.0.0.1:${grafanaPort}${pathname}`, {
+    headers: { Authorization: `Basic ${credentials}` },
+  });
+  if (!response.ok) throw new Error(`Grafana ${pathname} returned ${response.status}: ${await response.text()}`);
+  return response.json();
+}
+
 let startupAttempted = false;
 try {
   startupAttempted = true;
   run("docker", [...composeArgs, "up", "--build", "--detach", "--wait", "--wait-timeout", "180"]);
+  const alertRules = await grafanaJson("/api/v1/provisioning/alert-rules");
+  const alertTitles = alertRules.map(({ title }) => title).sort();
+  if (alertTitles.join("|") !== ["API Down", "Loki WAL Disk Full", "Prometheus Storage Target"].join("|")) {
+    throw new Error(`Grafana has unexpected local alert rules: ${alertTitles.join(", ")}`);
+  }
+  const dashboardResult = await grafanaJson("/api/dashboards/uid/impact-drive-local");
+  const dashboardTitles = dashboardResult.dashboard.panels.map(({ title }) => title).join(" ");
+  for (const signal of ["API availability", "API latency p95", "Validation failures", "Race Engineer response modes", "Optional provider errors", "Prometheus storage", "Local log volume", "Loki WAL disk usage"]) {
+    if (!dashboardTitles.includes(signal)) throw new Error(`Provisioned Grafana dashboard is missing ${signal}.`);
+  }
   run("npx", ["playwright", "test", "tests/compose-acceptance.spec.ts"], {
     ...environment,
     PLAYWRIGHT_EXTERNAL: "1",

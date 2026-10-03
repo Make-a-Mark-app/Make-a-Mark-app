@@ -39,10 +39,17 @@ test("the local Compose contract exposes only loopback web and Grafana ports", (
 
   const apiLogVolume = config.services.api.volumes.find(({ target }) => target === "/var/log/cognizant");
   const alloyLogVolume = config.services.alloy.volumes.find(({ target }) => target === "/var/log/cognizant");
+  const alloyPositionVolume = config.services.alloy.volumes.find(({ target }) => target === "/var/lib/alloy/data");
   assert.equal(apiLogVolume?.source, "service-logs");
   assert.equal(apiLogVolume?.read_only, undefined);
   assert.equal(alloyLogVolume?.source, "service-logs");
   assert.equal(alloyLogVolume?.read_only, true);
+  assert.equal(alloyPositionVolume?.source, "alloy-data");
+  assert.equal(alloyPositionVolume?.read_only, undefined);
+  for (const volume of ["grafana-data", "loki-data", "prometheus-data", "service-logs", "alloy-data"]) {
+    assert.ok(config.volumes[volume], `the Compose project must own ${volume}`);
+  }
+  assert.deepEqual(Object.keys(config.volumes).sort(), ["alloy-data", "grafana-data", "loki-data", "prometheus-data", "service-logs"]);
   assert.equal(JSON.stringify(config.services.alloy.volumes).includes("docker.sock"), false);
   const alloyConfig = readFileSync(path.join(projectRoot, "deploy/local/alloy/config.alloy"), "utf8");
   assert.match(alloyConfig, /loki\.source\.file/);
@@ -152,4 +159,11 @@ test("local observability applies retention targets and provisions actionable da
   for (const statement of ["15 days", "850 MiB", "1 GiB", "7 days", "2 GiB", "256 MiB", "age-based", "disk pressure", "API continues serving"]) {
     assert.ok(docs.toLowerCase().includes(statement.toLowerCase()), "docs must explain " + statement);
   }
+  const readme = readFileSync(path.join(projectRoot, "README.md"), "utf8");
+  for (const statement of ["npm run setup:local", "WEB_PORT", "GRAFANA_PORT", "up --build web api", "down --volumes", "alloy-data", "Clear my discoveries"]) {
+    assert.ok(readme.includes(statement), `README must document ${statement}`);
+  }
+  assert.match(readme, /down --volumes[\s\S]*?service-logs[\s\S]*?alloy-data/);
+  assert.match(readme, /\.env[\s\S]*?versioned demo fixture[\s\S]*?source-reviewed evidence/);
+  assert.match(readme, /\/summary[\s\S]*?Clear my discoveries/);
 });

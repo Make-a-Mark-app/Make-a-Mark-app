@@ -1,10 +1,21 @@
 import { spawnSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 const webPort = process.env.WEB_PORT ?? "8080";
 const grafanaPort = process.env.GRAFANA_PORT ?? "3000";
-const projectName = `make-a-mark-r1-acceptance-${process.pid}`;
+const projectName = `make-a-mark-r1-acceptance-${randomBytes(8).toString("hex")}`;
 const composeArgs = ["compose", "--project-name", projectName, "--env-file", ".env.example", "-f", "deploy/local/compose.yaml"];
+const projectVolumeNames = ["alloy-data", "grafana-data", "loki-data", "prometheus-data", "service-logs"].map((name) => `${projectName}_${name}`);
+const defaultProjectVolumesBefore = new Set(
+  capture("docker", ["volume", "ls", "--filter", "label=com.docker.compose.project=cognizant-local", "--format", "{{.Name}}"], process.env)
+    .split("\n").filter(Boolean),
+);
+const versionedContent = ["shared/data/telemetry.r1.v2.json", "shared/data/evidence.r1.v2.json"];
+const contentDigestsBefore = new Map(versionedContent.map((file) => [
+  file,
+  createHash("sha256").update(readFileSync(file)).digest("hex"),
+]));
 const environment = {
   ...process.env,
   WEB_PORT: webPort,
@@ -38,6 +49,7 @@ async function grafanaJson(pathname) {
 }
 
 let startupAttempted = false;
+let acceptanceError;
 try {
   startupAttempted = true;
   run("docker", [...composeArgs, "up", "--build", "--detach", "--wait", "--wait-timeout", "180"]);
@@ -82,12 +94,40 @@ try {
   if (forwardedLogs.includes("SENTINEL_QUESTION_SHOULD_NOT_BE_LOGGED")) {
     throw new Error("A request question sentinel was forwarded to Loki.");
   }
+
+  run("docker", [...composeArgs, "exec", "-T", "alloy", "/bin/bash", "-c", "touch /var/lib/alloy/data/acceptance-position-check"]);
+  run("docker", [...composeArgs, "down"]);
+  const volumesAfterStop = new Set(capture("docker", ["volume", "ls", "--format", "{{.Name}}"], process.env).split("\n").filter(Boolean));
+  for (const volumeName of projectVolumeNames) {
+    if (!volumesAfterStop.has(volumeName)) throw new Error(`Normal shutdown removed persistent volume ${volumeName}.`);
+  }
+
+  run("docker", [...composeArgs, "up", "--build", "--detach", "--wait", "--wait-timeout", "180"]);
+  run("docker", [...composeArgs, "exec", "-T", "alloy", "/bin/bash", "-c", "test -f /var/lib/alloy/data/acceptance-position-check"]);
+} catch (error) {
+  acceptanceError = error;
+  throw error;
 } finally {
   if (startupAttempted) {
     try {
       run("docker", [...composeArgs, "down", "--volumes"]);
+      const remainingVolumes = new Set(capture("docker", ["volume", "ls", "--format", "{{.Name}}"], process.env).split("\n").filter(Boolean));
+      for (const volumeName of projectVolumeNames) {
+        if (remainingVolumes.has(volumeName)) throw new Error(`Full reset left project volume ${volumeName} behind.`);
+      }
+      for (const volumeName of defaultProjectVolumesBefore) {
+        if (!remainingVolumes.has(volumeName)) throw new Error(`Isolated acceptance cleanup removed default project volume ${volumeName}.`);
+      }
+      for (const [file, digest] of contentDigestsBefore) {
+        const digestAfter = createHash("sha256").update(readFileSync(file)).digest("hex");
+        if (digestAfter !== digest) throw new Error(`Compose reset changed versioned content at ${file}.`);
+      }
     } catch (error) {
-      process.stderr.write(`Compose cleanup failed: ${error instanceof Error ? error.message : "unknown error"}\n`);
+      if (acceptanceError) {
+        process.stderr.write(`Compose cleanup also failed: ${error instanceof Error ? error.message : "unknown error"}\n`);
+      } else {
+        throw error;
+      }
     }
   }
 }

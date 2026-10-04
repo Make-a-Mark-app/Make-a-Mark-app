@@ -6,7 +6,7 @@ import {
 import { evidenceRecords, illustrativeSamples, routeOptions, telemetrySnapshots, type EvidenceRecord, type IllustrativeSample, type RouteId } from "./data";
 import { EMPTY_DISCOVERY, hasDiscovery, parseDiscoveryRecap, type DiscoveryRecap } from "../shared/contracts/discovery";
 import { createMissionOutcome } from "../shared/contracts/mission";
-import { awardMissionCompletion, EMPTY_IMPACT_REWARDS, parseImpactRewardsState, type ImpactRewardsState } from "../shared/contracts/impact-rewards";
+import { awardMissionCompletion, EMPTY_IMPACT_REWARDS, MAX_IMPACT_REWARDS_COUNT, parseImpactRewardsState, type ImpactRewardsState } from "../shared/contracts/impact-rewards";
 import type { EngineerCategory } from "../shared/contracts/engineer";
 import { evidenceTopicTags, lookupEvidence, normalizeLiteralSearchText } from "../shared/contracts/evidence";
 import { missionScenario } from "../shared/mission";
@@ -275,6 +275,19 @@ function App() {
     }
   }
 
+  function recordSimulatedEarning(action: "video" | "merchandise") {
+    if (rewards.value.credits >= MAX_IMPACT_REWARDS_COUNT) {
+      setStatus("The demo Impact Credit limit has been reached. No additional credit was added.");
+      return;
+    }
+    setRewards((current) => current.value.credits >= MAX_IMPACT_REWARDS_COUNT
+      ? current
+      : { ...current, value: { ...current.value, credits: current.value.credits + 1 }, dirty: "save" });
+    setStatus(action === "video"
+      ? "Demo video completion recorded. No video view was verified."
+      : "Demo merchandise action recorded. No purchase was verified.");
+  }
+
   async function askEngineer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!question.trim() || !engineerSubmissionReady) return;
@@ -347,7 +360,7 @@ function App() {
         {screen === "engineer" && <Engineer question={question} setQuestion={setQuestion} category={engineerCategory} setCategory={setEngineerCategory} canSubmit={engineerSubmissionReady} reply={reply} asking={asking} onSubmit={askEngineer} currentChoice={discovery.routeChoice} detailLevel={detailLevel} setDetailLevel={setDetailLevel} includeMissionContext={includeMissionContext} setIncludeMissionContext={setIncludeMissionContext} includeTelemetryContext={includeTelemetryContext} setIncludeTelemetryContext={setIncludeTelemetryContext} telemetrySnapshot={telemetrySnapshots[telemetryIndex]} />}
         {screen === "summary" && <Summary discovery={discovery} onNavigate={navigate} onClear={clearDiscoveries} status={status} />}
         {screen === "about" && <TrustGuide onNavigate={navigate} />}
-        {screen === "rewards" && <ImpactRewards credits={rewards.value.credits} notice={rewards.notice} onReset={resetRewards} onNavigate={navigate} />}
+        {screen === "rewards" && <ImpactRewards credits={rewards.value.credits} notice={rewards.notice} feedback={status} onEarn={recordSimulatedEarning} onReset={resetRewards} onNavigate={navigate} />}
       </main>
 
       <footer className="site-footer">

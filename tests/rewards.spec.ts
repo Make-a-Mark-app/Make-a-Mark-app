@@ -196,3 +196,45 @@ test("confirmed rewards reset clears only rewards and preserves Discovery", asyn
   expect(await page.evaluate(() => localStorage.getItem("impact-drive-discovery"))).toContain('"routeChoice":"sea"');
   expect(await page.evaluate(() => localStorage.getItem("unrelated-browser-key"))).toBe("keep me");
 });
+
+test("video and merchandise simulations award repeatable local credits with clear boundaries", async ({ page }) => {
+  await page.goto("/rewards");
+
+  await expect(page.getByText(/simulated.*does not verify a video view/i)).toBeVisible();
+  await expect(page.getByText(/simulated.*does not verify product eligibility or a purchase/i)).toBeVisible();
+  await expect(page.getByText(/Bamboo-based merchandise and lower-impact shipping are hypothetical eligibility examples/i)).toBeVisible();
+
+  await page.getByRole("button", { name: "Record demo video completion" }).click();
+  await expect(page.getByText("1", { exact: true })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("Demo video completion recorded");
+  await page.getByRole("button", { name: "Record demo video completion" }).click();
+  await page.getByRole("button", { name: "Record demo merchandise purchase" }).click();
+  await page.getByRole("button", { name: "Record demo merchandise purchase" }).click();
+  await expect(page.getByText("4", { exact: true })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("Demo merchandise action recorded");
+
+  const savedState = await page.evaluate(() => JSON.parse(localStorage.getItem("impact-drive-rewards") ?? "null"));
+  expect(savedState.credits).toBe(4);
+  expect(savedState.missionCompletionIds).toEqual([]);
+  await page.reload();
+  await expect(page.getByText("4", { exact: true })).toBeVisible();
+});
+
+test("simulated earning actions report the credit bound without overflowing", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("impact-drive-rewards", JSON.stringify({
+    version: 1,
+    year: new Date().getFullYear(),
+    credits: 1_000_000,
+    treesThisYear: 0,
+    treesAllTime: 0,
+    missionCompletionIds: [],
+  })));
+
+  await page.goto("/rewards");
+  await page.getByRole("button", { name: "Record demo video completion" }).click();
+
+  await expect(page.getByText("1000000", { exact: true })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText(/limit has been reached/i);
+  const savedState = await page.evaluate(() => JSON.parse(localStorage.getItem("impact-drive-rewards") ?? "null"));
+  expect(savedState.credits).toBe(1_000_000);
+});

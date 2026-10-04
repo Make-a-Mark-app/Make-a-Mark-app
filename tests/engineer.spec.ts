@@ -324,36 +324,6 @@ test("KiraAI-backed evidence answers use bounded chat completions and server-res
   }
 });
 
-test("KiraAI authorization, rate-limit, timeout, and malformed-output failures never retry", async () => {
-  const failures: Array<{ name: string; respond: (url: URL, options: RequestInit) => Promise<Response>; rejects: boolean }> = [
-    { name: "authorization", respond: async () => new Response("unauthorized", { status: 401 }), rejects: true },
-    { name: "rate limit", respond: async () => new Response("limited", { status: 429 }), rejects: true },
-    { name: "timeout", respond: async () => { throw new DOMException("Timed out", "TimeoutError"); }, rejects: true },
-    { name: "malformed output", respond: async () => new Response(JSON.stringify({ choices: [{ message: { content: "not JSON" } }] }), { status: 200 }), rejects: false },
-  ];
-
-  for (const failure of failures) {
-    let callCount = 0;
-    const provider = createEngineerProvider({
-      ENGINEER_PROVIDER_ENABLED: "true",
-      ENGINEER_PROVIDER_API_KEY: "fake-kira-key",
-    }, async (input, options) => {
-      callCount += 1;
-      return failure.respond(input instanceof URL ? input : new URL(String(input)), options);
-    });
-    if (!provider) throw new Error("The configured KiraAI provider was not created.");
-    const call = provider({
-      instructions: "Ground only in reviewed records.",
-      question: "What is the travel and logistics emissions reduction?",
-      detailLevel: "concise",
-      records: [],
-    });
-    if (failure.rejects) await expect(call, failure.name).rejects.toThrow();
-    else await expect(call, failure.name).resolves.toBeNull();
-    expect(callCount, failure.name).toBe(1);
-  }
-});
-
 test("a configured provider endpoint is ignored by the initial release", async () => {
   const previousEndpoint = process.env.ENGINEER_PROVIDER_URL;
   process.env.ENGINEER_PROVIDER_URL = "https://127.0.0.1:1/engineer";

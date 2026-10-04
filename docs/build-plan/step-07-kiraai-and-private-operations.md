@@ -35,6 +35,16 @@ The selected hosted profile runs on the Tailscale-connected machine. It uses the
 4. **Check provider spend separately.** Use the KiraAI [account Dashboard](https://kiraai.vn/) for the remaining wallet balance and today's usage, and [Billing History](https://kiraai.vn/billing/) for transactions. Local Compose and Tailscale do not provide a KiraAI spending cap.
 5. **Verify the sharing boundary.** Confirm Tailscale Serve is active for the app, Funnel is off, and Grafana remains reachable only over host loopback.
 
+## Diagnose the private deployment
+
+1. Open Grafana on the host at `http://127.0.0.1:3001` (or the configured `TAILNET_GRAFANA_PORT`) and sign in with `GRAFANA_USER` and `GRAFANA_PASSWORD` from the ignored `.env`. Open the **Impact Drive local operations** dashboard.
+2. For API availability, check the **API availability** panel and the local **API Down** alert. Confirm container health with `npm run tailnet:status`; verify Grafana is still loopback-only and the API is available through the app URL.
+3. For slow or failed API requests, use **API latency p95** and **HTTP request rate by status**. Filter logs in Loki by `service="api"` and inspect only the allowlisted route, status, duration, response mode, and provider error category.
+4. For a **prepared fallback** with `request_failed`, check whether the provider is enabled and the key is present, current, and restricted to the configured model. Then check KiraAI key limits, wallet balance/transactions, and provider availability. This category intentionally groups authorization, rate-limit, HTTP, network, and timeout failures; local telemetry does not expose upstream response details.
+5. For a **prepared fallback** with `invalid_response`, the provider response was missing, malformed, or could not be grounded in the selected records/context. The API discarded it and returned its prepared answer. Check the model setting and repeat with a supported evidence question; never use raw prompts or provider response bodies as diagnostic logs.
+6. A **prepared fallback** without a provider error usually means the provider is disabled or no key is configured; check the two provider settings in `.env`. A **no-answer** mode with no provider error means retrieval/context did not support the question, so try a question supported by a reviewed record or selected context.
+7. Check **Race Engineer response modes** and **Optional provider errors** for aggregate behavior. Provider errors have no local alert threshold: low-volume demo traffic does not support a useful threshold, and no wallet-spend threshold is enforced here. Inspect these panels and KiraAI wallet usage manually. Local alerts cover API availability and storage pressure only; no outbound alert notifications are configured.
+
 ## Deliverables
 
 - KiraAI endpoint/model defaults and optional API key configuration for the API container.

@@ -6,11 +6,13 @@ import {
 import { evidenceRecords, illustrativeSamples, routeOptions, telemetrySnapshots, type EvidenceRecord, type IllustrativeSample, type RouteId } from "./data";
 import { EMPTY_DISCOVERY, hasDiscovery, parseDiscoveryRecap, type DiscoveryRecap } from "../shared/contracts/discovery";
 import { createMissionOutcome } from "../shared/contracts/mission";
+import { awardMissionCompletion, EMPTY_IMPACT_REWARDS, parseImpactRewardsState, type ImpactRewardsState } from "../shared/contracts/impact-rewards";
 import type { EngineerCategory } from "../shared/contracts/engineer";
 import { evidenceTopicTags, lookupEvidence, normalizeLiteralSearchText } from "../shared/contracts/evidence";
 import { missionScenario } from "../shared/mission";
+import { ImpactRewards } from "./ImpactRewards";
 
-type Screen = "home" | "world" | "mission" | "library" | "telemetry" | "engineer" | "summary" | "about";
+type Screen = "home" | "world" | "mission" | "library" | "telemetry" | "engineer" | "summary" | "about" | "rewards";
 type EngineerReply = {
   answer: string;
   whatSourceStates: string;
@@ -40,11 +42,12 @@ const navItems: Array<{ id: Screen; label: string; href: string }> = [
   { id: "library", label: "Evidence library", href: "/evidence" },
   { id: "telemetry", label: "Simulated live view", href: "/telemetry" },
   { id: "about", label: "How to read this", href: "/method" },
+  { id: "rewards", label: "Impact rewards", href: "/rewards" },
 ];
 
 const screenPaths: Record<Screen, string> = {
   home: "/", world: "/world", mission: "/mission/freight", library: "/library",
-  telemetry: "/telemetry", engineer: "/engineer", summary: "/summary", about: "/about",
+  telemetry: "/telemetry", engineer: "/engineer", summary: "/summary", about: "/about", rewards: "/rewards",
 };
 
 function readSavedDiscovery(): DiscoveryRecap {
@@ -53,6 +56,14 @@ function readSavedDiscovery(): DiscoveryRecap {
     if (raw) return parseDiscoveryRecap(JSON.parse(raw)) ?? EMPTY_DISCOVERY;
   } catch { /* Start with a clean local session if storage is unavailable. */ }
   return EMPTY_DISCOVERY;
+}
+
+function readSavedRewards(): ImpactRewardsState {
+  try {
+    const raw = localStorage.getItem("impact-drive-rewards");
+    if (raw) return parseImpactRewardsState(JSON.parse(raw)) ?? EMPTY_IMPACT_REWARDS;
+  } catch { /* Keep the demo available with an empty in-memory state when storage cannot be read. */ }
+  return EMPTY_IMPACT_REWARDS;
 }
 
 function screenFromPath(path: string): Screen {
@@ -64,6 +75,7 @@ function screenFromPath(path: string): Screen {
   if (route === "/engineer") return "engineer";
   if (route === "/summary") return "summary";
   if (route === "/method" || route === "/about") return "about";
+  if (route === "/rewards") return "rewards";
   return "home";
 }
 
@@ -82,6 +94,9 @@ function App() {
   const [screen, setScreen] = useState<Screen>(() => screenFromPath(window.location.pathname));
   const [menuOpen, setMenuOpen] = useState(false);
   const [discovery, setDiscovery] = useState<DiscoveryRecap>(readSavedDiscovery);
+  const [rewards, setRewards] = useState<ImpactRewardsState>(readSavedRewards);
+  const [missionCompletionId, setMissionCompletionId] = useState(() => window.crypto.randomUUID());
+  const awardedMissionCompletionId = useRef<string | null>(null);
   const [car, setCar] = useState({ x: 50, y: 30 });
   const [motionOn, setMotionOn] = useState(!window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [search, setSearch] = useState("");
@@ -112,6 +127,11 @@ function App() {
       else localStorage.removeItem("impact-drive-discovery");
     } catch { /* Local state still works for this visit. */ }
   }, [discovery]);
+
+  useEffect(() => {
+    try { localStorage.setItem("impact-drive-rewards", JSON.stringify(rewards)); }
+    catch { /* The rewards still work for this visit when storage is unavailable. */ }
+  }, [rewards]);
 
   useEffect(() => {
     const onPop = () => {
@@ -192,11 +212,17 @@ function App() {
   }, []);
 
   function chooseRoute(routeId: RouteId) {
+    if (discovery.missionComplete) {
+      setMissionCompletionId(window.crypto.randomUUID());
+      awardedMissionCompletionId.current = null;
+    }
     setDiscovery((d) => ({ ...d, missionComplete: false, routeChoice: routeId, topics: d.topics.includes("Environment") ? d.topics : [...d.topics, "Environment"] }));
     setStatus("");
   }
 
   function retryMission() {
+    setMissionCompletionId(window.crypto.randomUUID());
+    awardedMissionCompletionId.current = null;
     setDiscovery((d) => ({ ...d, missionComplete: false, routeChoice: null }));
     setStatus("Mission reset. Choose a route to play again.");
   }
@@ -239,9 +265,18 @@ function App() {
   }
 
   function finishMission() {
-    if (!discovery.routeChoice) return;
+    if (!discovery.routeChoice || discovery.missionComplete || awardedMissionCompletionId.current === missionCompletionId) return;
+    awardedMissionCompletionId.current = missionCompletionId;
+    const award = awardMissionCompletion(rewards, missionCompletionId);
     setDiscovery((d) => ({ ...d, missionComplete: true }));
-    setStatus("Mission complete. Your route choice is recorded on this device only.");
+    if (award.kind === "awarded") {
+      setRewards(award.state);
+      setStatus("Mission complete. You earned 1 demo Impact Credit on this device.");
+    } else if (award.kind === "duplicate") {
+      setStatus("Mission complete. This completion was already recorded on this device.");
+    } else {
+      setStatus("Mission complete. The demo Impact Credit limit has been reached.");
+    }
   }
 
   const activeNav = screen === "home" ? "" : screen;
@@ -269,6 +304,7 @@ function App() {
         {screen === "engineer" && <Engineer question={question} setQuestion={setQuestion} category={engineerCategory} setCategory={setEngineerCategory} canSubmit={engineerSubmissionReady} reply={reply} asking={asking} onSubmit={askEngineer} currentChoice={discovery.routeChoice} detailLevel={detailLevel} setDetailLevel={setDetailLevel} includeMissionContext={includeMissionContext} setIncludeMissionContext={setIncludeMissionContext} includeTelemetryContext={includeTelemetryContext} setIncludeTelemetryContext={setIncludeTelemetryContext} telemetrySnapshot={telemetrySnapshots[telemetryIndex]} />}
         {screen === "summary" && <Summary discovery={discovery} onNavigate={navigate} onClear={clearDiscoveries} status={status} />}
         {screen === "about" && <TrustGuide onNavigate={navigate} />}
+        {screen === "rewards" && <ImpactRewards credits={rewards.credits} onNavigate={navigate} />}
       </main>
 
       <footer className="site-footer">

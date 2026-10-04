@@ -127,6 +127,18 @@ h1, h2, h3, p { margin-top: 0; }
 .aside-rule { height: 1px; width: 44px; background: var(--yellow); }
 
 .content-page { width: min(1190px, 91.5%); min-height: calc(100vh - 146px); margin: 0 auto; padding: 51px 0 84px; }
+.rewards-page { max-width: 1000px; }
+.rewards-heading { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(270px, .75fr); align-items: center; gap: clamp(28px, 6vw, 76px); }
+.rewards-heading h1 { margin: 0 0 13px; font: 500 clamp(43px, 5.5vw, 68px)/1.02 var(--serif); letter-spacing: -.035em; }
+.rewards-heading > div:first-child > p:last-child { max-width: 510px; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.rewards-balance { display: flex; flex-direction: column; align-items: flex-start; gap: 11px; padding: 25px; border: 1px solid var(--line-strong); background: #0a241d; }
+.rewards-balance > svg { color: var(--yellow); }
+.rewards-balance > span { color: var(--yellow); font: 8px var(--mono); letter-spacing: .13em; }
+.rewards-balance > strong { font: 500 58px/1 var(--serif); }
+.rewards-balance > small { color: var(--muted); font-size: 11px; }
+.rewards-balance .button { width: 100%; justify-content: space-between; margin-top: 4px; }
+.rewards-demo-note { display: flex; align-items: flex-start; gap: 10px; margin: 28px 0 0; padding: 15px 17px; border: 1px solid rgba(229,242,63,.25); color: var(--muted); font-size: 11px; line-height: 1.65; }
+.rewards-demo-note svg { color: var(--yellow); flex: 0 0 auto; }
 .telemetry-page { width: min(1190px, 91.5%); min-height: calc(100vh - 146px); margin: 0 auto; padding: 72px 0 94px; }
 .telemetry-heading { display: flex; justify-content: space-between; align-items: end; gap: 28px; padding-bottom: 32px; border-bottom: 1px solid var(--line); }
 .telemetry-heading .overline { margin-bottom: 17px; }
@@ -433,6 +445,8 @@ h1, h2, h3, p { margin-top: 0; }
   .content-page { width: 93%; }
 }
 @media (max-width: 780px) {
+  .rewards-heading { grid-template-columns: 1fr; gap: 20px; }
+  .rewards-balance { padding: 21px; }
   .telemetry-page { padding-top: 39px; }
   .telemetry-heading { align-items: flex-start; flex-direction: column; gap: 20px; }
   .telemetry-meta { align-items: flex-start; flex-direction: column; gap: 8px; }
@@ -514,6 +528,8 @@ h1, h2, h3, p { margin-top: 0; }
   .site-footer > div { flex-wrap: wrap; gap: 5px 17px; }
 }
 @media (max-width: 460px) {
+  .rewards-heading h1 { font-size: 48px; }
+  .rewards-balance { padding: 18px; }
   .hero-actions { gap: 8px; }
   .hero-actions .button { min-height: 43px; padding: 0 13px; font-size: 10px; }
   .hero-copy .overline { font-size: 8px; margin-bottom: 17px; }

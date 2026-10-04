@@ -58,12 +58,26 @@ function readSavedDiscovery(): DiscoveryRecap {
   return EMPTY_DISCOVERY;
 }
 
-function readSavedRewards(): ImpactRewardsState {
+type RewardsModel = {
+  value: ImpactRewardsState;
+  storage: "persistent" | "memory";
+  notice: string;
+  dirty: "save" | "remove" | false;
+};
+
+const REWARDS_STORAGE_FAILURE_NOTICE = "Rewards storage is unavailable. Rewards are in memory only and won’t persist after reload or tab close.";
+
+function readSavedRewards(): RewardsModel {
   try {
     const raw = localStorage.getItem("impact-drive-rewards");
-    if (raw) return parseImpactRewardsState(JSON.parse(raw)) ?? EMPTY_IMPACT_REWARDS;
-  } catch { /* Keep the demo available with an empty in-memory state when storage cannot be read. */ }
-  return EMPTY_IMPACT_REWARDS;
+    if (!raw) return { value: EMPTY_IMPACT_REWARDS, storage: "persistent", notice: "", dirty: false };
+    let parsed: ImpactRewardsState | null = null;
+    try { parsed = parseImpactRewardsState(JSON.parse(raw)); } catch { /* Malformed saved JSON is invalid rewards data. */ }
+    if (parsed) return { value: parsed, storage: "persistent", notice: "", dirty: false };
+    return { value: EMPTY_IMPACT_REWARDS, storage: "persistent", notice: "Invalid saved rewards data was reset.", dirty: "remove" };
+  } catch {
+    return { value: EMPTY_IMPACT_REWARDS, storage: "memory", notice: REWARDS_STORAGE_FAILURE_NOTICE, dirty: false };
+  }
 }
 
 function screenFromPath(path: string): Screen {
@@ -94,7 +108,7 @@ function App() {
   const [screen, setScreen] = useState<Screen>(() => screenFromPath(window.location.pathname));
   const [menuOpen, setMenuOpen] = useState(false);
   const [discovery, setDiscovery] = useState<DiscoveryRecap>(readSavedDiscovery);
-  const [rewards, setRewards] = useState<ImpactRewardsState>(readSavedRewards);
+  const [rewards, setRewards] = useState<RewardsModel>(readSavedRewards);
   const [missionCompletionId, setMissionCompletionId] = useState(() => window.crypto.randomUUID());
   const awardedMissionCompletionId = useRef<string | null>(null);
   const [car, setCar] = useState({ x: 50, y: 30 });
@@ -129,8 +143,22 @@ function App() {
   }, [discovery]);
 
   useEffect(() => {
-    try { localStorage.setItem("impact-drive-rewards", JSON.stringify(rewards)); }
-    catch { /* The rewards still work for this visit when storage is unavailable. */ }
+    if (!rewards.dirty || rewards.storage === "memory") return;
+    try {
+      if (rewards.dirty === "remove") localStorage.removeItem("impact-drive-rewards");
+      else localStorage.setItem("impact-drive-rewards", JSON.stringify(rewards.value));
+      setRewards((current) => current.dirty ? { ...current, dirty: false } : current);
+    } catch {
+      const invalidDataCleanupFailed = rewards.dirty === "remove";
+      setRewards((current) => ({
+        ...current,
+        storage: "memory",
+        dirty: false,
+        notice: invalidDataCleanupFailed
+          ? "Invalid saved rewards data was reset for this visit. The saved rewards key could not be cleared; the empty state is in memory only and won’t persist after reload or tab close."
+          : REWARDS_STORAGE_FAILURE_NOTICE,
+      }));
+    }
   }, [rewards]);
 
   useEffect(() => {
@@ -232,6 +260,21 @@ function App() {
     setStatus("Your local recap was cleared.");
   }
 
+  function resetRewards() {
+    if (!window.confirm("Reset your demo Impact Credits and mission completion history on this device?")) return;
+    try {
+      localStorage.removeItem("impact-drive-rewards");
+      setRewards({ value: EMPTY_IMPACT_REWARDS, storage: "persistent", notice: "Your rewards were reset.", dirty: false });
+    } catch {
+      setRewards({
+        value: EMPTY_IMPACT_REWARDS,
+        storage: "memory",
+        notice: "Your rewards were reset for this visit, but storage is unavailable. The empty state won’t persist after reload or tab close.",
+        dirty: false,
+      });
+    }
+  }
+
   async function askEngineer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!question.trim() || !engineerSubmissionReady) return;
@@ -267,10 +310,10 @@ function App() {
   function finishMission() {
     if (!discovery.routeChoice || discovery.missionComplete || awardedMissionCompletionId.current === missionCompletionId) return;
     awardedMissionCompletionId.current = missionCompletionId;
-    const award = awardMissionCompletion(rewards, missionCompletionId);
+    const award = awardMissionCompletion(rewards.value, missionCompletionId);
     setDiscovery((d) => ({ ...d, missionComplete: true }));
     if (award.kind === "awarded") {
-      setRewards(award.state);
+      setRewards((current) => ({ ...current, value: award.state, dirty: "save" }));
       setStatus("Mission complete. You earned 1 demo Impact Credit on this device.");
     } else if (award.kind === "duplicate") {
       setStatus("Mission complete. This completion was already recorded on this device.");
@@ -304,7 +347,7 @@ function App() {
         {screen === "engineer" && <Engineer question={question} setQuestion={setQuestion} category={engineerCategory} setCategory={setEngineerCategory} canSubmit={engineerSubmissionReady} reply={reply} asking={asking} onSubmit={askEngineer} currentChoice={discovery.routeChoice} detailLevel={detailLevel} setDetailLevel={setDetailLevel} includeMissionContext={includeMissionContext} setIncludeMissionContext={setIncludeMissionContext} includeTelemetryContext={includeTelemetryContext} setIncludeTelemetryContext={setIncludeTelemetryContext} telemetrySnapshot={telemetrySnapshots[telemetryIndex]} />}
         {screen === "summary" && <Summary discovery={discovery} onNavigate={navigate} onClear={clearDiscoveries} status={status} />}
         {screen === "about" && <TrustGuide onNavigate={navigate} />}
-        {screen === "rewards" && <ImpactRewards credits={rewards.credits} onNavigate={navigate} />}
+        {screen === "rewards" && <ImpactRewards credits={rewards.value.credits} notice={rewards.notice} onReset={resetRewards} onNavigate={navigate} />}
       </main>
 
       <footer className="site-footer">

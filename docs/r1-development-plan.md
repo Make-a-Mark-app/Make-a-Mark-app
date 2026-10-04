@@ -1,6 +1,6 @@
 # Make A Mark R1 Development Plan
 
-**Status:** Implementation plan only. No R1 app implementation is included in this document update. The product requirements and business/evaluation context remain in the [inclusive R1 concept](Make-a-Mark-R1-inclusive-AI-concept.md).
+**Status:** The core app is implemented. PR #27 adds the private Tailscale sharing path. The product requirements and business/evaluation context remain in the [inclusive R1 concept](Make-a-Mark-R1-inclusive-AI-concept.md).
 
 ## Delivery boundary
 
@@ -24,8 +24,8 @@ Use the eight standalone guides in [Build Order](build-plan/index.md). Each guid
 | 3 | [Telemetry and evidence](build-plan/step-03-telemetry-and-evidence.md) | Add user-advanced fixture states and source-reviewed records |
 | 4 | [API and Race Engineer](build-plan/step-04-api-and-race-engineer.md) | Add bounded search, optional model adapter, citations, and fallback |
 | 5 | [Local containers and observability](build-plan/step-05-local-containers-and-observability.md) | Package Docker Compose stack and local Grafana signals |
-| 6 | [Optional Google Cloud deployment](build-plan/step-06-google-cloud-deployment.md) | Host a shareable demo on Cloud Run behind HTTPS routing |
-| 7 | [Optional cloud model and operations](build-plan/step-07-cloud-model-and-operations.md) | Configure Vertex/other provider, IAM/secrets, logs, and alerts |
+| 6 | [Private demo over Tailscale](build-plan/step-06-private-tailscale-demo.md) | Share the local Compose app over tailnet-only HTTPS |
+| 7 | [KiraAI and private operations](build-plan/step-07-kiraai-and-private-operations.md) | Configure server-side KiraAI, wallet awareness, and local observability |
 | 8 | [Inclusive acceptance and rehearsal](build-plan/step-08-acceptance-and-rehearsal.md) | Verify accessibility, trust, failures, operations, and demo repeatability |
 
 Steps 6 and 7 are optional for local-only work. Step 8 applies to either run profile.

@@ -59,7 +59,7 @@ test("the local Compose contract exposes only loopback web and Grafana ports", (
 
   const apiEnvironment = config.services.api.environment;
   assert.equal(apiEnvironment.ENGINEER_PROVIDER_ENABLED, "false");
-  assert.equal(apiEnvironment.ENGINEER_PROVIDER_URL, "");
+  assert.equal(apiEnvironment.ENGINEER_PROVIDER_URL, "https://kiraai.vn/api/v1/chat/completions");
   assert.equal(apiEnvironment.ENGINEER_PROVIDER_API_KEY, "");
   assert.equal(apiEnvironment.ENGINEER_PROVIDER_MODEL, "gpt-oss-120b");
   for (const [serviceName, service] of Object.entries(config.services)) {
@@ -110,6 +110,10 @@ test("local setup creates a private password once and preserves existing setting
     const password = generated.match(/^GRAFANA_PASSWORD=(.+)$/m)?.[1];
     assert.ok(password && password !== "admin");
     assert.match(generated, /^ENGINEER_PROVIDER_ENABLED=false$/m);
+    assert.match(generated, /^ENGINEER_PROVIDER_URL=https:\/\/kiraai\.vn\/api\/v1\/chat\/completions$/m);
+    assert.match(generated, /^ENGINEER_PROVIDER_MODEL=gpt-oss-120b$/m);
+    assert.match(readFileSync(path.join(projectRoot, ".gitignore"), "utf8"), /^\.env$/m);
+    assert.match(readFileSync(path.join(projectRoot, ".dockerignore"), "utf8"), /^\.env$/m);
     assert.equal(statSync(generatedPath).mode & 0o777, 0o600);
 
     writeFileSync(generatedPath, generated + "LOCAL_CUSTOM_SETTING=preserve-me\n");

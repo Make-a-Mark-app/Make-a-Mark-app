@@ -61,4 +61,4 @@ The configured retention applies to Prometheus TSDB blocks and Loki's age-based 
 
 ## Handoff
 
-For local-only use, proceed directly to [Step 8](step-08-acceptance-and-rehearsal.md). If a shareable hosted demo is needed, use [Step 6](step-06-google-cloud-deployment.md).
+For local-only use, proceed directly to [Step 8](step-08-acceptance-and-rehearsal.md). If a private shared demo is needed, use [Step 6](step-06-private-tailscale-demo.md).

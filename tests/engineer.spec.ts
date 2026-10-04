@@ -67,15 +67,11 @@ test("keyword retrieval supports the reviewed Belong and Community claims", asyn
   }
 });
 
-test("broad ESG report questions retrieve reviewed records for the provider", async () => {
-  let suppliedRecordIds: string[] = [];
-  let suppliedInstructions = "";
-  let suppliedRecordKeys: string[] = [];
+test("broad ESG report availability questions use a prepared cited answer", async () => {
+  let providerCalls = 0;
   const app = createApp({ provider: async (input) => {
-    suppliedInstructions = input.instructions;
-    suppliedRecordIds = input.records.map(({ id }) => id);
-    suppliedRecordKeys = Object.keys(input.records[0] ?? {});
-    return { answer: "The reviewed ESG report records are available as evidence for questions about impact reporting.", recordIds: suppliedRecordIds };
+    providerCalls += 1;
+    return { answer: "This should not be called for an availability question.", recordIds: input.records.map(({ id }) => id) };
   } });
   const server = createServer(app);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -88,14 +84,11 @@ test("broad ESG report questions retrieve reviewed records for the provider", as
       body: JSON.stringify({ category: "evidence", question: "Is the ESG reports knowledge added in for the AI to use?" }),
     });
     const result = await response.json() as { answer: string; mode: string; citations: Array<{ recordId: string }> };
-    expect(result.mode).toBe("grounded_ai");
-    expect(result.answer).toContain("reviewed ESG report records");
-    expect(suppliedRecordIds.length).toBeGreaterThan(0);
-    expect(result.citations.map(({ recordId }) => recordId)).toEqual(suppliedRecordIds);
-    expect(suppliedInstructions).toContain("broad report overview");
-    expect(suppliedInstructions).toContain("Do not include figures or record counts");
-    expect(suppliedRecordKeys).not.toContain("history");
-    expect(suppliedRecordKeys).not.toContain("reviewer");
+    expect(result.mode).toBe("prepared_fallback");
+    expect(result.answer).toContain("KiraAI receives matching source-reviewed records");
+    expect(result.answer).toContain("not full-report ingestion");
+    expect(result.citations.length).toBeGreaterThan(0);
+    expect(providerCalls).toBe(0);
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }

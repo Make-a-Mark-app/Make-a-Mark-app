@@ -39,7 +39,8 @@ export function createEngineerProvider(
       },
       body: JSON.stringify({
         model,
-        max_tokens: input.detailLevel === "concise" ? 200 : 500,
+        max_tokens: input.detailLevel === "concise" ? 600 : 800,
+        reasoning_effort: input.detailLevel === "concise" ? "low" : "medium",
         messages: [
           { role: "system", content: input.instructions },
           {

@@ -346,13 +346,13 @@ test("KiraAI-backed evidence answers use bounded chat completions and server-res
     expect(upstreamUrl?.href).toBe("https://kiraai.vn/api/v1/chat/completions");
     expect(upstreamOptions?.method).toBe("POST");
     expect(new Headers(upstreamOptions?.headers).get("authorization")).toBe("Bearer " + apiKey);
-    expect(requestBody).toMatchObject({ model: "gpt-oss-120b", max_tokens: 200 });
+    expect(requestBody).toMatchObject({ model: "gpt-oss-120b", max_tokens: 600, reasoning_effort: "low" });
     expect(requestBody.messages[0].role).toBe("system");
     expect(userContext.question).toBe("What is the travel and logistics emissions reduction?");
     expect(userContext.records.map(({ id }: { id: string }) => id)).toEqual(["env-2025-travel-logistics-reduction"]);
     expect(Object.keys(userContext.records[0]).sort()).toEqual(["claim", "id", "limitations", "reportingPeriod", "source", "title", "topic", "unit", "value", "valueDisplay"].sort());
     expect(userContext.records[0].source).not.toHaveProperty("url");
-    expect(requestBody.max_tokens).toBe(200);
+    expect(requestBody.max_tokens).toBe(600);
     expect(serializedResult).not.toContain(apiKey);
     expect(loggedEntries.join("\n")).not.toContain(apiKey);
     expect(loggedEntries.join("\n")).not.toContain(userContext.question);

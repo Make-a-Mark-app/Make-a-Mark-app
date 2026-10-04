@@ -1,6 +1,12 @@
 import { ArrowRight, Info, TreePine } from "lucide-react";
 import { IMPACT_CONTRIBUTION_REDEMPTION_COST, MAX_IMPACT_REWARDS_COUNT } from "../shared/contracts/impact-rewards";
 
+const fictionalLeaderboard = [
+  { rank: "01", name: "Avery Chen" },
+  { rank: "02", name: "Mika Okafor" },
+  { rank: "03", name: "Sofia Laurent" },
+];
+
 type ImpactRewardsProps = {
   credits: number;
   year: number;
@@ -79,9 +85,27 @@ export function ImpactRewards({ credits, year, treesThisYear, treesAllTime, noti
         </div>
         <p className="rewards-contribution-note">These are fictional demo totals. No tree was planted and no impact was measured.</p>
       </section>
+      <section className="rewards-examples" aria-label="Illustrative campaign and leaderboard examples">
+        <article className="rewards-campaign" aria-labelledby="rewards-campaign-title">
+          <p className="overline"><span /> CAMPAIGN EXAMPLE</p>
+          <h2 id="rewards-campaign-title">Illustrative campaign placeholder</h2>
+          <span className="rewards-campaign-label">Illustrative campaign total</span>
+          <div className="rewards-campaign-mark" aria-hidden="true">—</div>
+          <p>Illustrative demo data — not live AMF1 data or a measured impact result.</p>
+        </article>
+        <article className="rewards-leaderboard" aria-labelledby="rewards-leaderboard-title">
+          <p className="overline"><span /> FICTIONAL EXAMPLE</p>
+          <h2 id="rewards-leaderboard-title">Example leaderboard</h2>
+          <p>Fictional names and ranks only. This fixed example is independent of browser rewards activity.</p>
+          <ol aria-label="Fixed fictional leaderboard">
+            {fictionalLeaderboard.map(({ rank, name }) => <li key={rank}><span>{rank}</span><strong>{name}</strong></li>)}
+          </ol>
+        </article>
+      </section>
+      <p className="rewards-prize-note">Race-pass prize hypothesis only. No prize or contest is active.</p>
       <p className="rewards-demo-note">
         <Info size={16} aria-hidden="true" />
-        <span>These demo credits are stored only in this browser. They are not a real loyalty balance and do not represent a measured impact or confirmed tree planting.</span>
+        <span>These demo credits are stored only in this browser. No video view or purchase is verified, no payment is transferred, no order is placed, no tree is planted, no carbon credit or offset is issued, and no impact is measured.</span>
       </p>
     </div>
   );

@@ -287,8 +287,8 @@ function App() {
       ? current
       : { ...current, value: { ...current.value, credits: current.value.credits + 1 }, dirty: "save" });
     setStatus(action === "video"
-      ? "Demo video completion recorded. No video view was verified."
-      : "Demo merchandise action recorded. No purchase was verified.");
+      ? "Demo video completion recorded. No video view was verified or payment transferred; no order, carbon credit, or offset was issued, and no impact was measured."
+      : "Demo merchandise action recorded. No purchase or product eligibility was verified; no payment was transferred, order placed, carbon credit or offset issued, or impact measured.");
   }
 
   function redeemContribution() {
@@ -305,7 +305,7 @@ function App() {
       const result = redeemImpactContribution(current.value);
       return result.kind === "redeemed" ? { ...current, value: result.state, dirty: "save" } : current;
     });
-    setStatus("Demo contribution recorded. No tree was planted or impact measured.");
+    setStatus("Demo contribution recorded. No tree was planted, payment transferred, order placed, carbon credit or offset issued, or impact measured.");
   }
 
   async function askEngineer(event: FormEvent<HTMLFormElement>) {
@@ -347,7 +347,7 @@ function App() {
     setDiscovery((d) => ({ ...d, missionComplete: true }));
     if (award.kind === "awarded") {
       setRewards((current) => ({ ...current, value: award.state, dirty: "save" }));
-      setStatus("Mission complete. You earned 1 demo Impact Credit on this device.");
+      setStatus("Mission complete. You earned 1 demo Impact Credit on this device. No tree was planted or impact measured.");
     } else if (award.kind === "duplicate") {
       setStatus("Mission complete. This completion was already recorded on this device.");
     } else {

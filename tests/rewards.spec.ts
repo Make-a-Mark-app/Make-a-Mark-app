@@ -22,6 +22,7 @@ test("a completed freight mission earns one browser-local credit per distinct ru
   await page.getByRole("link", { name: "Freight mission" }).click();
   await page.getByRole("button", { name: "Complete mission" }).click();
   await expect(page.getByRole("status")).toContainText("earned 1 demo Impact Credit");
+  await expect(page.getByRole("status")).toContainText(/No tree was planted or impact measured/i);
   await page.getByRole("link", { name: "Impact rewards" }).click();
   await expect(page.locator(".rewards-balance").getByText("1", { exact: true })).toBeVisible();
 
@@ -267,7 +268,7 @@ test("contribution redemption requires ten credits and updates all totals atomic
   await expect(page.locator(".rewards-balance").getByText("0", { exact: true })).toBeVisible();
   await expect(page.locator(".rewards-contribution-totals > div").nth(0).locator("strong")).toHaveText("3");
   await expect(page.locator(".rewards-contribution-totals > div").nth(1).locator("strong")).toHaveText("8");
-  await expect(page.getByRole("status")).toContainText(/No tree was planted or impact measured/i);
+  await expect(page.getByRole("status")).toContainText(/No tree was planted.*impact measured/i);
   const after = await page.evaluate(() => JSON.parse(localStorage.getItem("impact-drive-rewards") ?? "null"));
   expect(after).toMatchObject({ credits: 0, treesThisYear: 3, treesAllTime: 8 });
   await page.reload();
@@ -336,4 +337,76 @@ test("an earlier device year keeps the recognized contribution year and count", 
   await expect(page.locator(".rewards-contribution-totals > div").nth(1).locator("strong")).toHaveText("9");
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("impact-drive-rewards") ?? "null"));
   expect(saved).toMatchObject({ year: 2029, credits: 12, treesThisYear: 4, treesAllTime: 9 });
+});
+
+test("campaign and leaderboard examples stay clearly illustrative and fictional", async ({ page }) => {
+  await page.goto("/rewards");
+
+  const campaign = page.getByRole("article", { name: "Illustrative campaign placeholder" });
+  await expect(campaign.getByText("Illustrative campaign total")).toBeVisible();
+  await expect(campaign.getByText("Illustrative demo data — not live AMF1 data or a measured impact result.")).toBeVisible();
+  await expect(campaign.locator(".rewards-campaign-mark")).not.toContainText(/\d/);
+
+  const leaderboard = page.getByRole("article", { name: "Example leaderboard" });
+  await expect(leaderboard.getByRole("listitem")).toHaveCount(3);
+  await expect(leaderboard.getByText("Avery Chen")).toBeVisible();
+  await expect(leaderboard.getByText("Mika Okafor")).toBeVisible();
+  await expect(leaderboard.getByText("Sofia Laurent")).toBeVisible();
+  await expect(leaderboard).toContainText("Fictional names and ranks only");
+  await expect(leaderboard.getByText("You", { exact: true })).toHaveCount(0);
+  await expect(leaderboard).not.toContainText(/contributions?:\s*\d/i);
+
+  await expect(page.getByText(/race-pass prize hypothesis only/i)).toBeVisible();
+  await expect(page.getByText(/No prize or contest is active/i)).toBeVisible();
+  await expect(page.getByText(/No payment is transferred, no order is placed, no tree is planted, no carbon credit or offset is issued, and no impact is measured/i)).toBeVisible();
+});
+
+test("rewards earning, redemption, and reset work offline from the keyboard", async ({ page }) => {
+  await page.route("**/api/**", (route) => route.abort());
+  await page.route("https://**", (route) => route.abort());
+  await page.goto("/rewards");
+
+  const videoButton = page.getByRole("button", { name: "Record demo video completion" });
+  await videoButton.focus();
+  await videoButton.press("Enter");
+  for (let credit = 1; credit < 10; credit += 1) await videoButton.press("Enter");
+  const redeemButton = page.getByRole("button", { name: "Redeem 10 credits for a demo contribution" });
+  await expect(redeemButton).toBeEnabled();
+  await redeemButton.focus();
+  await redeemButton.press("Enter");
+  await expect(page.locator(".rewards-balance strong")).toHaveText("0");
+  await expect(page.locator(".rewards-contribution-totals > div").nth(1).locator("strong")).toHaveText("1");
+  await expect(page.getByRole("status")).toContainText(/No tree was planted/i);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("impact-drive-rewards"))).toContain('"treesAllTime":1');
+
+  await page.reload();
+  await expect(page.locator(".rewards-contribution-totals > div").nth(1).locator("strong")).toHaveText("1");
+  page.once("dialog", (dialog) => dialog.accept());
+  const resetButton = page.getByRole("button", { name: "Reset rewards" });
+  await resetButton.focus();
+  await resetButton.press("Enter");
+  await expect(page.getByRole("status")).toContainText(/rewards were reset/i);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("impact-drive-rewards"))).toBeNull();
+});
+
+test("reward actions fit narrow screens, work by touch, and respect reduced motion", async ({ browser }) => {
+  const context = await browser.newContext({
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${process.env.VITE_PORT ?? "5173"}`,
+    viewport: { width: 375, height: 812 },
+    hasTouch: true,
+    reducedMotion: "reduce",
+  });
+  const page = await context.newPage();
+  await page.goto("/rewards");
+
+  const videoButton = page.getByRole("button", { name: "Record demo video completion" });
+  await expect(videoButton).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  expect(await page.evaluate(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches)).toBeTruthy();
+  const transitionDuration = await videoButton.evaluate((button) => getComputedStyle(button).transitionDuration);
+  expect(transitionDuration.split(",").every((duration) => Number.parseFloat(duration) <= 0.0001)).toBeTruthy();
+
+  await videoButton.tap();
+  await expect(page.locator(".rewards-balance strong")).toHaveText("1");
+  await context.close();
 });

@@ -157,6 +157,17 @@ h1, h2, h3, p { margin-top: 0; }
 .rewards-contribution-totals strong { font: 500 44px/1 var(--serif); }
 .rewards-contribution-totals small, .rewards-contribution-note { color: var(--muted); font-size: 10px; line-height: 1.65; }
 .rewards-contribution-note { margin: 13px 0 0; }
+.rewards-examples { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 48px; }
+.rewards-campaign, .rewards-leaderboard { min-width: 0; padding: 22px; border: 1px solid var(--line-strong); background: #0a241d; }
+.rewards-campaign h2, .rewards-leaderboard h2 { margin: 0 0 13px; font: 500 26px/1.12 var(--serif); }
+.rewards-campaign-label { color: var(--yellow); font: 8px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+.rewards-campaign-mark { display: grid; min-height: 100px; place-items: center; margin: 12px 0; border: 1px dashed var(--line-strong); color: var(--yellow); font: 36px var(--serif); }
+.rewards-campaign > p:last-child, .rewards-leaderboard > p:not(.overline) { color: var(--muted); font-size: 10px; line-height: 1.65; }
+.rewards-leaderboard ol { margin: 14px 0 0; padding: 0; list-style: none; }
+.rewards-leaderboard li { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-top: 1px solid var(--line); }
+.rewards-leaderboard li > span { color: var(--yellow); font: 10px var(--mono); }
+.rewards-leaderboard li > strong { font-size: 12px; font-weight: 500; }
+.rewards-prize-note { margin: 24px 0 0; color: var(--muted); font-size: 10px; line-height: 1.65; }
 .rewards-demo-note { display: flex; align-items: flex-start; gap: 10px; margin: 28px 0 0; padding: 15px 17px; border: 1px solid rgba(229,242,63,.25); color: var(--muted); font-size: 11px; line-height: 1.65; }
 .rewards-demo-note svg { color: var(--yellow); flex: 0 0 auto; }
 .telemetry-page { width: min(1190px, 91.5%); min-height: calc(100vh - 146px); margin: 0 auto; padding: 72px 0 94px; }
@@ -471,6 +482,7 @@ h1, h2, h3, p { margin-top: 0; }
   .rewards-action-card { padding: 19px; }
   .rewards-contribution-totals { grid-template-columns: 1fr; }
   .rewards-contribution-totals > div + div { border-left: 0; border-top: 1px solid var(--line-strong); }
+  .rewards-examples { grid-template-columns: 1fr; }
   .telemetry-page { padding-top: 39px; }
   .telemetry-heading { align-items: flex-start; flex-direction: column; gap: 20px; }
   .telemetry-meta { align-items: flex-start; flex-direction: column; gap: 8px; }

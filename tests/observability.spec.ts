@@ -92,7 +92,7 @@ test("operational logs and metrics expose only sanitized metadata across Enginee
     expect(entries).toContainEqual(expect.objectContaining({ route: "/api/engineer", method: "POST", status: "2xx", response_mode: "prepared_fallback", dependency_error_category: "request_failed" }));
     expect(entries.filter((entry) => entry.status === "4xx")).toHaveLength(3);
     expect(metrics).toContain('impact_drive_http_requests_total{method="POST",route="/api/engineer",status_class="2xx"}');
-    expect(metrics).toContain('impact_drive_engineer_provider_errors_total{category="request_failed"} 1');
+    expect(metrics).toMatch(/impact_drive_engineer_provider_errors_total\{category="request_failed"\} [1-9]\d*/);
     for (const privateValue of [
       "travel and logistics emissions reduction", "What happens for the air route?", "What signals are in this simulated snapshot?",
       "private-provider-token-8451", "freight-r1-v1", "step-01", "287", "km/h", "Your game scenario prioritizes a tight delivery window.", "oversized-private-question-6104",

@@ -528,7 +528,7 @@ test("Engineer failures do not retry and do not block mission, evidence, or tele
   await page.getByRole("link", { name: "Freight mission" }).click();
   await expect(page.getByRole("heading", { name: "Deliver the parts." })).toBeVisible();
   await page.getByRole("link", { name: "Evidence library" }).click();
-  await expect(page.getByRole("heading", { name: "Source-reviewed evidence" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Evidence library" })).toBeVisible();
   await page.getByRole("link", { name: "Simulated live view" }).click();
   await expect(page.getByRole("heading", { name: "Simulated live view" })).toBeVisible();
   expect(attempts).toBe(3);

@@ -33,7 +33,7 @@ function command(program, args, { capture = false, env = process.env } = {}) {
 }
 
 function composeArgs(args) {
-  return ["compose", "--project-name", composeProject, "-f", composeFile, ...args];
+  return ["compose", "--project-name", composeProject, "--env-file", path.join(projectRoot, ".env"), "-f", composeFile, ...args];
 }
 
 function composeEnvironment(webPort, grafanaPort) {

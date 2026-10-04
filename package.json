@@ -12,6 +12,10 @@
     "tailnet:up": "node scripts/tailnet-deploy.mjs up",
     "tailnet:status": "node scripts/tailnet-deploy.mjs status",
     "tailnet:down": "node scripts/tailnet-deploy.mjs down",
+    "test:compose:config": "node --test scripts/test-compose-contract.mjs",
+    "test:provider:config": "node --import tsx --test scripts/test-provider-config.mjs",
+    "test:service:logs": "node --import tsx --test scripts/test-service-logs.mjs",
+    "setup:local": "node scripts/setup-local-env.mjs",
     "start": "tsx server/index.ts",
     "build:server": "tsc -p tsconfig.server.build.json",
     "preview": "vite preview --host 0.0.0.0"

@@ -39,7 +39,6 @@ function composeArgs(args) {
 function composeEnvironment(webPort, grafanaPort) {
   return {
     ...process.env,
-    WEB_BIND_ADDRESS: "127.0.0.1",
     WEB_PORT: String(webPort),
     GRAFANA_PORT: String(grafanaPort),
   };

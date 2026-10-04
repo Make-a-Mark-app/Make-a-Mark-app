@@ -20,8 +20,9 @@ The selected hosted profile runs on the Tailscale-connected machine. It uses the
 
 ## Usage and operational guardrails
 
-- KiraAI wallet use has no additional application-level submission cap or separate daily/monthly spending ceiling in the selected configuration. Operators should check the KiraAI account's wallet balance and usage directly; usage can spend down the available balance.
+- KiraAI wallet use has no additional application-level submission cap or separate daily/monthly spending ceiling in the selected configuration. After signing in to KiraAI, check the account Dashboard for the remaining wallet balance and usage today, and use [Billing History](https://kiraai.vn/billing/) to review transactions. Partner-model usage can spend down the available VND wallet balance.
 - Respect KiraAI's per-key request limits. Do not retry rate-limited generations automatically.
+- The selected Tailscale deployment does not use Cloud Armor, public-edge rate limiting, or Google Cloud billing alerts. Monitor provider wallet usage in KiraAI.
 - Keep the request and answer bounds, timeout, response grounding, and prepared fallback behavior described in Step 4.
 - Use Grafana on the host's loopback address for API availability, latency, request status, Engineer response modes, provider errors, and storage dashboards. Grafana is not exposed through Tailscale Serve.
 - Keep logs allowlisted. Do not record prompts, question text, evidence passages, simulated values, secrets, or player identifiers. Avoid high-cardinality metric labels.
@@ -31,7 +32,7 @@ The selected hosted profile runs on the Tailscale-connected machine. It uses the
 1. **Exercise the provider configuration.** With the provider disabled or no key present, confirm prepared answers and browsing continue to work. With the replacement key configured, submit a supported evidence question and confirm the answer uses the reviewed records and canonical server-resolved citations.
 2. **Check failure handling.** Exercise authorization denial, rate limiting, timeout, and malformed provider output. Confirm the API returns its prepared fallback and does not retry the generation request.
 3. **Inspect local telemetry.** Confirm Grafana shows API errors, latency, fallback/no-answer modes, and provider error categories. Verify log contents and metric labels contain no private content.
-4. **Check provider spend separately.** Use the KiraAI account page to monitor wallet balance and usage. Local Compose and Tailscale do not provide a KiraAI spending cap.
+4. **Check provider spend separately.** Use the KiraAI [account Dashboard](https://kiraai.vn/) for the remaining wallet balance and today's usage, and [Billing History](https://kiraai.vn/billing/) for transactions. Local Compose and Tailscale do not provide a KiraAI spending cap.
 5. **Verify the sharing boundary.** Confirm Tailscale Serve is active for the app, Funnel is off, and Grafana remains reachable only over host loopback.
 
 ## Deliverables

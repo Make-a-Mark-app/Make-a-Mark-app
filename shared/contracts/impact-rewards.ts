@@ -1,6 +1,7 @@
 export const IMPACT_REWARDS_VERSION = 1 as const;
 export const MAX_IMPACT_REWARDS_COUNT = 1_000_000;
 export const MAX_MISSION_COMPLETION_IDS = 500;
+export const IMPACT_CONTRIBUTION_REDEMPTION_COST = 10;
 
 export type ImpactRewardsState = {
   version: typeof IMPACT_REWARDS_VERSION;
@@ -14,6 +15,11 @@ export type ImpactRewardsState = {
 export type MissionCompletionAward =
   | { kind: "awarded"; state: ImpactRewardsState }
   | { kind: "duplicate"; state: ImpactRewardsState }
+  | { kind: "limit"; state: ImpactRewardsState };
+
+export type ImpactContributionRedemption =
+  | { kind: "redeemed"; state: ImpactRewardsState }
+  | { kind: "insufficient"; state: ImpactRewardsState }
   | { kind: "limit"; state: ImpactRewardsState };
 
 export const EMPTY_IMPACT_REWARDS: ImpactRewardsState = {
@@ -74,6 +80,28 @@ export function awardMissionCompletion(state: ImpactRewardsState, completionId: 
       ...state,
       credits: state.credits + 1,
       missionCompletionIds: [...state.missionCompletionIds, completionId].slice(-MAX_MISSION_COMPLETION_IDS),
+    },
+  };
+}
+
+export function rolloverImpactRewardsYear(state: ImpactRewardsState, deviceYear = new Date().getFullYear()): ImpactRewardsState {
+  if (!isYear(deviceYear) || deviceYear <= state.year) return state;
+  return { ...state, year: deviceYear, treesThisYear: 0 };
+}
+
+export function redeemImpactContribution(state: ImpactRewardsState): ImpactContributionRedemption {
+  if (state.credits < IMPACT_CONTRIBUTION_REDEMPTION_COST) return { kind: "insufficient", state };
+  if (state.treesThisYear >= MAX_IMPACT_REWARDS_COUNT || state.treesAllTime >= MAX_IMPACT_REWARDS_COUNT) {
+    return { kind: "limit", state };
+  }
+
+  return {
+    kind: "redeemed",
+    state: {
+      ...state,
+      credits: state.credits - IMPACT_CONTRIBUTION_REDEMPTION_COST,
+      treesThisYear: state.treesThisYear + 1,
+      treesAllTime: state.treesAllTime + 1,
     },
   };
 }

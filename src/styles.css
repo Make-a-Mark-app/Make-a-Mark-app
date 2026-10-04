@@ -137,6 +137,8 @@ h1, h2, h3, p { margin-top: 0; }
 .rewards-balance > strong { font: 500 58px/1 var(--serif); }
 .rewards-balance > small { color: var(--muted); font-size: 11px; }
 .rewards-balance .button { width: 100%; justify-content: space-between; margin-top: 4px; }
+.rewards-balance .button:disabled { opacity: .48; cursor: not-allowed; transform: none; }
+.rewards-balance #rewards-redemption-help { line-height: 1.5; }
 .rewards-earning { margin-top: 54px; }
 .rewards-earning-heading { max-width: 650px; margin-bottom: 21px; }
 .rewards-earning-heading h2 { margin: 0 0 9px; font: 500 clamp(30px, 3.5vw, 42px)/1.08 var(--serif); }
@@ -147,6 +149,14 @@ h1, h2, h3, p { margin-top: 0; }
 .rewards-action-card p { color: var(--muted); font-size: 11px; line-height: 1.7; }
 .rewards-action-card .button { width: 100%; margin-top: auto; justify-content: space-between; }
 .rewards-action-card .button:focus-visible, .rewards-balance .button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 3px; }
+.rewards-contributions { margin-top: 52px; }
+.rewards-contribution-totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--line-strong); background: #0a241d; }
+.rewards-contribution-totals > div { display: flex; flex-direction: column; gap: 9px; padding: 21px 24px; }
+.rewards-contribution-totals > div + div { border-left: 1px solid var(--line-strong); }
+.rewards-contribution-totals span { color: var(--yellow); font: 8px var(--mono); letter-spacing: .13em; }
+.rewards-contribution-totals strong { font: 500 44px/1 var(--serif); }
+.rewards-contribution-totals small, .rewards-contribution-note { color: var(--muted); font-size: 10px; line-height: 1.65; }
+.rewards-contribution-note { margin: 13px 0 0; }
 .rewards-demo-note { display: flex; align-items: flex-start; gap: 10px; margin: 28px 0 0; padding: 15px 17px; border: 1px solid rgba(229,242,63,.25); color: var(--muted); font-size: 11px; line-height: 1.65; }
 .rewards-demo-note svg { color: var(--yellow); flex: 0 0 auto; }
 .telemetry-page { width: min(1190px, 91.5%); min-height: calc(100vh - 146px); margin: 0 auto; padding: 72px 0 94px; }
@@ -459,6 +469,8 @@ h1, h2, h3, p { margin-top: 0; }
   .rewards-balance { padding: 21px; }
   .rewards-action-grid { grid-template-columns: 1fr; }
   .rewards-action-card { padding: 19px; }
+  .rewards-contribution-totals { grid-template-columns: 1fr; }
+  .rewards-contribution-totals > div + div { border-left: 0; border-top: 1px solid var(--line-strong); }
   .telemetry-page { padding-top: 39px; }
   .telemetry-heading { align-items: flex-start; flex-direction: column; gap: 20px; }
   .telemetry-meta { align-items: flex-start; flex-direction: column; gap: 8px; }

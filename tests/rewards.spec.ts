@@ -12,25 +12,25 @@ test("a completed freight mission earns one browser-local credit per distinct ru
   await page.goto("/mission/freight");
   await page.getByRole("link", { name: "Impact rewards" }).click();
   await expect(page.getByText("Your Impact Credits")).toBeVisible();
-  await expect(page.getByText("0", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("0", { exact: true })).toBeVisible();
 
   await page.getByRole("link", { name: "Freight mission" }).click();
   await page.getByRole("radio", { name: /Sea/ }).click();
   await page.getByRole("link", { name: "Impact rewards" }).click();
-  await expect(page.getByText("0", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("0", { exact: true })).toBeVisible();
 
   await page.getByRole("link", { name: "Freight mission" }).click();
   await page.getByRole("button", { name: "Complete mission" }).click();
   await expect(page.getByRole("status")).toContainText("earned 1 demo Impact Credit");
   await page.getByRole("link", { name: "Impact rewards" }).click();
-  await expect(page.getByText("1", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("1", { exact: true })).toBeVisible();
 
   const firstSavedState = await page.evaluate(() => JSON.parse(localStorage.getItem("impact-drive-rewards") ?? "null"));
   expect(firstSavedState).toMatchObject({ version: 1, credits: 1 });
   expect(firstSavedState.missionCompletionIds).toHaveLength(1);
 
   await page.reload();
-  await expect(page.getByText("1", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("1", { exact: true })).toBeVisible();
 
   await page.getByRole("link", { name: "Freight mission" }).click();
   await page.getByRole("button", { name: "Retry mission" }).click();
@@ -38,7 +38,7 @@ test("a completed freight mission earns one browser-local credit per distinct ru
   await page.getByRole("button", { name: "Complete mission" }).click();
   await expect(page.getByRole("status")).toContainText("earned 1 demo Impact Credit");
   await page.getByRole("link", { name: "Impact rewards" }).click();
-  await expect(page.getByText("2", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("2", { exact: true })).toBeVisible();
 
   const retriedState = await page.evaluate(() => JSON.parse(localStorage.getItem("impact-drive-rewards") ?? "null"));
   expect(retriedState.missionCompletionIds).toHaveLength(2);
@@ -67,7 +67,7 @@ test("replaying a completion ID already in browser storage does not award anothe
   await page.getByRole("button", { name: "Complete mission" }).click();
   await expect(page.getByRole("status")).toContainText("already recorded");
   await page.getByRole("link", { name: "Impact rewards" }).click();
-  await expect(page.getByText("4", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("4", { exact: true })).toBeVisible();
 
   const savedIds = await page.evaluate(() => JSON.parse(localStorage.getItem("impact-drive-rewards") ?? "null").missionCompletionIds);
   expect(savedIds).toEqual(["mission-completion-duplicate"]);
@@ -87,7 +87,7 @@ test("invalid saved rewards are reset with an accessible notice", async ({ page 
 
   await page.goto("/rewards");
 
-  await expect(page.getByText("0", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("0", { exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText(/invalid saved rewards data was reset/i);
   await expect.poll(() => page.evaluate(() => localStorage.getItem("impact-drive-rewards"))).toBeNull();
 });
@@ -97,7 +97,7 @@ test("malformed rewards JSON is removed and explained", async ({ page }) => {
 
   await page.goto("/rewards");
 
-  await expect(page.getByText("0", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("0", { exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText(/invalid saved rewards data was reset/i);
   await expect.poll(() => page.evaluate(() => localStorage.getItem("impact-drive-rewards"))).toBeNull();
 });
@@ -114,7 +114,7 @@ test("unsupported rewards versions are removed and explained", async ({ page }) 
 
   await page.goto("/rewards");
 
-  await expect(page.getByText("0", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("0", { exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText(/invalid saved rewards data was reset/i);
   await expect.poll(() => page.evaluate(() => localStorage.getItem("impact-drive-rewards"))).toBeNull();
 });
@@ -131,7 +131,7 @@ test("invalid rewards remain empty and explain failed cleanup when storage remov
 
   await page.goto("/rewards");
 
-  await expect(page.getByText("0", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("0", { exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText(/invalid saved rewards data was reset for this visit/i);
   await expect(page.getByRole("status")).toContainText(/saved rewards key could not be cleared/i);
   await expect(page.getByRole("status")).toContainText(/won’t persist after reload or tab close/i);
@@ -156,10 +156,10 @@ test("rewards remain usable in memory when browser storage read and write fail",
   await page.getByRole("button", { name: "Complete mission" }).click();
   await page.getByRole("link", { name: "Impact rewards" }).click();
 
-  await expect(page.getByText("1", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("1", { exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("won’t persist after reload or tab close");
   await page.reload();
-  await expect(page.getByText("0", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("0", { exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("won’t persist after reload or tab close");
 });
 
@@ -184,13 +184,13 @@ test("confirmed rewards reset clears only rewards and preserves Discovery", asyn
   });
 
   await page.goto("/rewards");
-  await expect(page.getByText("3", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("3", { exact: true })).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept());
   const resetButton = page.getByRole("button", { name: "Reset rewards" });
   await resetButton.focus();
   await resetButton.press("Enter");
 
-  await expect(page.getByText("0", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("0", { exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("rewards were reset");
   await expect.poll(() => page.evaluate(() => localStorage.getItem("impact-drive-rewards"))).toBeNull();
   expect(await page.evaluate(() => localStorage.getItem("impact-drive-discovery"))).toContain('"routeChoice":"sea"');
@@ -205,19 +205,19 @@ test("video and merchandise simulations award repeatable local credits with clea
   await expect(page.getByText(/Bamboo-based merchandise and lower-impact shipping are hypothetical eligibility examples/i)).toBeVisible();
 
   await page.getByRole("button", { name: "Record demo video completion" }).click();
-  await expect(page.getByText("1", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("1", { exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("Demo video completion recorded");
   await page.getByRole("button", { name: "Record demo video completion" }).click();
   await page.getByRole("button", { name: "Record demo merchandise purchase" }).click();
   await page.getByRole("button", { name: "Record demo merchandise purchase" }).click();
-  await expect(page.getByText("4", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("4", { exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("Demo merchandise action recorded");
 
   const savedState = await page.evaluate(() => JSON.parse(localStorage.getItem("impact-drive-rewards") ?? "null"));
   expect(savedState.credits).toBe(4);
   expect(savedState.missionCompletionIds).toEqual([]);
   await page.reload();
-  await expect(page.getByText("4", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("4", { exact: true })).toBeVisible();
 });
 
 test("simulated earning actions report the credit bound without overflowing", async ({ page }) => {
@@ -233,8 +233,107 @@ test("simulated earning actions report the credit bound without overflowing", as
   await page.goto("/rewards");
   await page.getByRole("button", { name: "Record demo video completion" }).click();
 
-  await expect(page.getByText("1000000", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-balance").getByText("1000000", { exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText(/limit has been reached/i);
   const savedState = await page.evaluate(() => JSON.parse(localStorage.getItem("impact-drive-rewards") ?? "null"));
   expect(savedState.credits).toBe(1_000_000);
+});
+
+test("contribution redemption requires ten credits and updates all totals atomically", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("rewards-seeded")) return;
+    sessionStorage.setItem("rewards-seeded", "yes");
+    localStorage.setItem("impact-drive-rewards", JSON.stringify({
+      version: 1,
+      year: new Date().getFullYear(),
+      credits: 9,
+      treesThisYear: 2,
+      treesAllTime: 7,
+      missionCompletionIds: [],
+    }));
+  });
+
+  await page.goto("/rewards");
+  const redeemButton = page.getByRole("button", { name: "Redeem 10 credits for a demo contribution" });
+  await expect(redeemButton).toBeDisabled();
+  await expect(page.getByText(/Need 10 Impact Credits to redeem/i)).toBeVisible();
+  const before = await page.evaluate(() => localStorage.getItem("impact-drive-rewards"));
+  expect(JSON.parse(before ?? "null")).toMatchObject({ credits: 9, treesThisYear: 2, treesAllTime: 7 });
+
+  await page.getByRole("button", { name: "Record demo video completion" }).click();
+  await expect(redeemButton).toBeEnabled();
+  await redeemButton.click();
+
+  await expect(page.locator(".rewards-balance").getByText("0", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-contribution-totals > div").nth(0).locator("strong")).toHaveText("3");
+  await expect(page.locator(".rewards-contribution-totals > div").nth(1).locator("strong")).toHaveText("8");
+  await expect(page.getByRole("status")).toContainText(/No tree was planted or impact measured/i);
+  const after = await page.evaluate(() => JSON.parse(localStorage.getItem("impact-drive-rewards") ?? "null"));
+  expect(after).toMatchObject({ credits: 0, treesThisYear: 3, treesAllTime: 8 });
+  await page.reload();
+  await expect(page.locator(".rewards-balance").getByText("0", { exact: true })).toBeVisible();
+  await expect(page.locator(".rewards-contribution-totals > div").nth(0).locator("strong")).toHaveText("3");
+  await expect(page.locator(".rewards-contribution-totals > div").nth(1).locator("strong")).toHaveText("8");
+});
+
+test("a bounded contribution counter prevents redemption without changing rewards state", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("impact-drive-rewards", JSON.stringify({
+    version: 1,
+    year: new Date().getFullYear(),
+    credits: 10,
+    treesThisYear: 1_000_000,
+    treesAllTime: 999_999,
+    missionCompletionIds: [],
+  })));
+
+  await page.goto("/rewards");
+  const redeemButton = page.getByRole("button", { name: "Redeem 10 credits for a demo contribution" });
+  await expect(redeemButton).toBeDisabled();
+  await expect(page.locator("#rewards-redemption-help")).toContainText(/contribution limit has been reached/i);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("impact-drive-rewards") ?? "null"));
+  expect(saved).toMatchObject({ credits: 10, treesThisYear: 1_000_000, treesAllTime: 999_999 });
+});
+
+test("later device years roll only the current-year contribution count forward", async ({ page }) => {
+  await page.addInitScript(() => {
+    Date.prototype.getFullYear = () => 2030;
+    localStorage.setItem("impact-drive-rewards", JSON.stringify({
+      version: 1,
+      year: 2029,
+      credits: 15,
+      treesThisYear: 5,
+      treesAllTime: 11,
+      missionCompletionIds: [],
+    }));
+  });
+
+  await page.goto("/rewards");
+
+  await expect(page.getByText(/THIS YEAR · 2030/)).toBeVisible();
+  await expect(page.locator(".rewards-contribution-totals > div").nth(0).locator("strong")).toHaveText("0");
+  await expect(page.locator(".rewards-contribution-totals > div").nth(1).locator("strong")).toHaveText("11");
+  const rolled = await page.evaluate(() => JSON.parse(localStorage.getItem("impact-drive-rewards") ?? "null"));
+  expect(rolled).toMatchObject({ year: 2030, credits: 15, treesThisYear: 0, treesAllTime: 11 });
+});
+
+test("an earlier device year keeps the recognized contribution year and count", async ({ page }) => {
+  await page.addInitScript(() => {
+    Date.prototype.getFullYear = () => 2028;
+    localStorage.setItem("impact-drive-rewards", JSON.stringify({
+      version: 1,
+      year: 2029,
+      credits: 12,
+      treesThisYear: 4,
+      treesAllTime: 9,
+      missionCompletionIds: [],
+    }));
+  });
+
+  await page.goto("/rewards");
+
+  await expect(page.getByText(/THIS YEAR · 2029/)).toBeVisible();
+  await expect(page.locator(".rewards-contribution-totals > div").nth(0).locator("strong")).toHaveText("4");
+  await expect(page.locator(".rewards-contribution-totals > div").nth(1).locator("strong")).toHaveText("9");
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("impact-drive-rewards") ?? "null"));
+  expect(saved).toMatchObject({ year: 2029, credits: 12, treesThisYear: 4, treesAllTime: 9 });
 });

@@ -6,7 +6,7 @@ import {
 import { evidenceRecords, illustrativeSamples, routeOptions, telemetrySnapshots, type EvidenceRecord, type IllustrativeSample, type RouteId } from "./data";
 import { EMPTY_DISCOVERY, hasDiscovery, parseDiscoveryRecap, type DiscoveryRecap } from "../shared/contracts/discovery";
 import { createMissionOutcome } from "../shared/contracts/mission";
-import { awardMissionCompletion, EMPTY_IMPACT_REWARDS, MAX_IMPACT_REWARDS_COUNT, parseImpactRewardsState, type ImpactRewardsState } from "../shared/contracts/impact-rewards";
+import { awardMissionCompletion, EMPTY_IMPACT_REWARDS, IMPACT_CONTRIBUTION_REDEMPTION_COST, MAX_IMPACT_REWARDS_COUNT, parseImpactRewardsState, redeemImpactContribution, rolloverImpactRewardsYear, type ImpactRewardsState } from "../shared/contracts/impact-rewards";
 import type { EngineerCategory } from "../shared/contracts/engineer";
 import { evidenceTopicTags, lookupEvidence, normalizeLiteralSearchText } from "../shared/contracts/evidence";
 import { missionScenario } from "../shared/mission";
@@ -73,7 +73,10 @@ function readSavedRewards(): RewardsModel {
     if (!raw) return { value: EMPTY_IMPACT_REWARDS, storage: "persistent", notice: "", dirty: false };
     let parsed: ImpactRewardsState | null = null;
     try { parsed = parseImpactRewardsState(JSON.parse(raw)); } catch { /* Malformed saved JSON is invalid rewards data. */ }
-    if (parsed) return { value: parsed, storage: "persistent", notice: "", dirty: false };
+    if (parsed) {
+      const currentYear = rolloverImpactRewardsYear(parsed);
+      return { value: currentYear, storage: "persistent", notice: "", dirty: currentYear === parsed ? false : "save" };
+    }
     return { value: EMPTY_IMPACT_REWARDS, storage: "persistent", notice: "Invalid saved rewards data was reset.", dirty: "remove" };
   } catch {
     return { value: EMPTY_IMPACT_REWARDS, storage: "memory", notice: REWARDS_STORAGE_FAILURE_NOTICE, dirty: false };
@@ -288,6 +291,23 @@ function App() {
       : "Demo merchandise action recorded. No purchase was verified.");
   }
 
+  function redeemContribution() {
+    const redemption = redeemImpactContribution(rewards.value);
+    if (redemption.kind === "insufficient") {
+      setStatus(`You need ${IMPACT_CONTRIBUTION_REDEMPTION_COST} Impact Credits to record a demo contribution.`);
+      return;
+    }
+    if (redemption.kind === "limit") {
+      setStatus("The demo contribution limit has been reached. Your rewards were not changed.");
+      return;
+    }
+    setRewards((current) => {
+      const result = redeemImpactContribution(current.value);
+      return result.kind === "redeemed" ? { ...current, value: result.state, dirty: "save" } : current;
+    });
+    setStatus("Demo contribution recorded. No tree was planted or impact measured.");
+  }
+
   async function askEngineer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!question.trim() || !engineerSubmissionReady) return;
@@ -360,7 +380,7 @@ function App() {
         {screen === "engineer" && <Engineer question={question} setQuestion={setQuestion} category={engineerCategory} setCategory={setEngineerCategory} canSubmit={engineerSubmissionReady} reply={reply} asking={asking} onSubmit={askEngineer} currentChoice={discovery.routeChoice} detailLevel={detailLevel} setDetailLevel={setDetailLevel} includeMissionContext={includeMissionContext} setIncludeMissionContext={setIncludeMissionContext} includeTelemetryContext={includeTelemetryContext} setIncludeTelemetryContext={setIncludeTelemetryContext} telemetrySnapshot={telemetrySnapshots[telemetryIndex]} />}
         {screen === "summary" && <Summary discovery={discovery} onNavigate={navigate} onClear={clearDiscoveries} status={status} />}
         {screen === "about" && <TrustGuide onNavigate={navigate} />}
-        {screen === "rewards" && <ImpactRewards credits={rewards.value.credits} notice={rewards.notice} feedback={status} onEarn={recordSimulatedEarning} onReset={resetRewards} onNavigate={navigate} />}
+        {screen === "rewards" && <ImpactRewards credits={rewards.value.credits} year={rewards.value.year} treesThisYear={rewards.value.treesThisYear} treesAllTime={rewards.value.treesAllTime} notice={rewards.notice} feedback={status} onEarn={recordSimulatedEarning} onRedeem={redeemContribution} onReset={resetRewards} onNavigate={navigate} />}
       </main>
 
       <footer className="site-footer">

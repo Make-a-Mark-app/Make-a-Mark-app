@@ -49,6 +49,31 @@ Prometheus retains metrics for 15 days and limits retained TSDB blocks to 850 Mi
 
 Stop the stack with `docker compose -f deploy/local/compose.yaml down`; its named Grafana, Loki, Prometheus, source-log, and Alloy-position volumes are preserved. For a full reset of only this Compose project's observability state, run `docker compose -f deploy/local/compose.yaml down --volumes`. This removes the five named volumes (`grafana-data`, `loki-data`, `prometheus-data`, `service-logs`, and `alloy-data`) for the default `cognizant-local` project; it leaves `.env`, source files, the versioned demo fixture, and source-reviewed evidence untouched. Clear browser Discovery data separately from the app's `/summary` page with **Clear my discoveries**; that data stays in browser storage and is not part of Compose reset. Nginx publishes only the web port (default `8080`), while Grafana is loopback-bound (default `3000`).
 
+## Share privately over Tailscale
+
+With Docker and Tailscale connected on this machine, start a separate Compose project for the tailnet deployment:
+
+```sh
+npm run tailnet:up
+```
+
+The command builds and health-checks the stack, binds the web port to `127.0.0.1`, and configures Tailscale Serve on the first free HTTPS port from `10000` through `10100`. It prints the HTTPS URL for this machine's tailnet DNS name. The API remains behind Nginx; Grafana stays on loopback and the other observability services have no host ports. Only tailnet devices permitted by your Tailscale access policy can reach the app. This deployment uses `tailscale serve`; it does not enable Funnel or create a public URL.
+
+```sh
+npm run tailnet:status
+npm run tailnet:down
+```
+
+Status checks the saved Serve route, local app health, and Compose services. Stop removes only the Make a Mark route and its Compose containers; it preserves other Serve routes and named observability volumes. The tailnet deployment uses its own Compose project and defaults to web port `8081` and Grafana port `3001`, so it can run beside the standard local Compose stack. Override these with `TAILNET_WEB_PORT` or `TAILNET_GRAFANA_PORT` if needed. Set `TAILNET_HTTPS_PORT` to request a specific available Serve port; a port already used by Serve or Funnel is rejected without changing that route.
+
+To run the browser acceptance suite through the tailnet HTTPS entry point, set the URL printed by `tailnet:up`:
+
+```sh
+PLAYWRIGHT_BASE_URL="https://<machine>.<tailnet>.ts.net:<port>/" npm run test:e2e:tailnet
+```
+
+The suite runs against the existing app and does not start or stop Compose services. Also verify from a device outside the tailnet that the URL is inaccessible.
+
 ## Configuration checklist
 
 - **Local development (required):** Install Node.js and npm, then run `npm install`. `npm run dev` starts the Vite app and local Express API. `npm run build` type-checks and builds the app. No `.env` file, GCP project, model credential, or provider selection is needed for the mission and evidence-preview paths.

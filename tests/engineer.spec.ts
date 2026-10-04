@@ -348,9 +348,10 @@ test("a configured provider endpoint is ignored by the initial release", async (
 
 test("an injected provider sees only retrieved records and citations resolve from the server", async () => {
   let suppliedRecordIds: string[] = [];
+  let providerAnswer = "AMF1 reported travel and logistics emissions fell 14%.";
   const server = createServer(createApp({ provider: async (input) => {
     suppliedRecordIds = input.records.map(({ id }) => id);
-    return { answer: "The report reports a 14% reduction in travel and logistics emissions.", recordIds: suppliedRecordIds };
+    return { answer: providerAnswer, recordIds: suppliedRecordIds };
   } }));
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
@@ -360,13 +361,23 @@ test("an injected provider sees only retrieved records and citations resolve fro
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ category: "evidence", question: "What is the travel and logistics emissions reduction?" }),
     });
-    const result = await response.json() as { mode: string; citations: Array<{ recordId: string; sourceUrl: string }> };
+    const result = await response.json() as { answer: string; mode: string; citations: Array<{ recordId: string; sourceUrl: string }> };
     expect(result.mode).toBe("grounded_ai");
+    expect(result.answer).toBe("AMF1 reported travel and logistics emissions fell 14%.");
     expect(suppliedRecordIds).toEqual(["env-2025-travel-logistics-reduction"]);
     expect(result.citations).toEqual([expect.objectContaining({
       recordId: "env-2025-travel-logistics-reduction",
       sourceUrl: "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2025.pdf#page=8",
     })]);
+
+    providerAnswer = "AMF1 reported travel and logistics emissions fell 19%.";
+    const unsupportedNumberResponse = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category: "evidence", question: "What is the travel and logistics emissions reduction?" }),
+    });
+    const unsupportedNumberResult = await unsupportedNumberResponse.json() as { mode: string; limitations: string[] };
+    expect(unsupportedNumberResult.mode).toBe("prepared_fallback");
+    expect(unsupportedNumberResult.limitations).toContain("The provider response could not be grounded in the selected records and context, so it was not used.");
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }

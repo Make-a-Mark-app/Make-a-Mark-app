@@ -46,8 +46,7 @@ export type EngineerDependencies = {
 };
 
 const stopWords = new Set(["a", "an", "and", "are", "at", "about", "can", "carbon", "describe", "did", "does", "do", "explain", "figure", "footprint", "for", "happen", "happens", "has", "have", "how", "i", "include", "includes", "in", "is", "it", "lifetime", "many", "me", "mean", "means", "my", "of", "on", "or", "please", "report", "say", "show", "shows", "summarize", "team", "tell", "the", "this", "to", "total", "was", "were", "what", "when", "with", "work", "s"]);
-const safeExplanationTerms = new Set(["a", "about", "according", "an", "and", "are", "as", "at", "based", "by", "claim", "context", "data", "describes", "during", "evidence", "figure", "from", "has", "have", "in", "is", "it", "lists", "means", "measure", "measured", "of", "on", "only", "period", "record", "reported", "reports", "result", "route", "says", "selected", "shows", "simulated", "snapshot", "source", "states", "the", "their", "this", "to", "telemetry", "unavailable", "uses", "was", "were", "with", "year"]);
-const groundingInstructions = "Explain only the supplied reviewed records and explicitly selected fictional context. Do not add facts, values, units, source metadata, mission outcomes, or telemetry details. Return JSON with only answer (a short explanation) and recordIds (IDs from the supplied records that support it). Do not create citations or URLs.";
+const groundingInstructions = "Explain only the supplied reviewed records and explicitly selected fictional context. Paraphrase naturally; you do not need to copy the source wording. Do not add facts, values, units, source metadata, mission outcomes, or telemetry details. Keep any figures within the supplied records. Return JSON with only answer (a short explanation) and recordIds (IDs from the supplied records that support it). Do not create citations or URLs.";
 
 function tokens(value: string): string[] {
   return (value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").match(/[a-z0-9]+/g) ?? []).map((word) => {
@@ -162,7 +161,11 @@ function describeTelemetrySignals(telemetry: TelemetrySnapshot): string {
   return telemetry.signals.map((signal) => signal.name + ": " + (signal.value === null ? "Unavailable" : signal.value) + " " + signal.unit).join("; ");
 }
 
-function isProviderAnswerGrounded(answer: string, records: EvidenceRecord[], mission?: MissionSummary, telemetry?: TelemetrySnapshot): boolean {
+function numericValues(value: string): string[] {
+  return [...value.matchAll(/\b\d[\d,]*(?:\.\d+)?\b/g)].map(([number]) => number.replace(/,/g, ""));
+}
+
+function hasOnlySupportedNumbers(answer: string, records: EvidenceRecord[], mission?: MissionSummary, telemetry?: TelemetrySnapshot): boolean {
   const sourceText = records.flatMap((record) => [
     record.id, record.title, record.topic, record.claim, record.reviewNote, String(record.value ?? ""), record.valueDisplay ?? "", record.unit ?? "",
     record.reportingPeriod ?? "", record.source.title, record.source.edition, record.source.location ?? "", ...record.limitations,
@@ -171,8 +174,8 @@ function isProviderAnswerGrounded(answer: string, records: EvidenceRecord[], mis
     mission && [mission.title, mission.selectedRoute, mission.feedback].join(" "),
     telemetry && [telemetry.stepId, telemetry.timestamp, telemetry.status, ...telemetry.signals.flatMap((signal) => [signal.id, signal.name, signal.value === null ? "Unavailable" : String(signal.value), signal.unit])].join(" "),
   ].filter(Boolean).join(" ");
-  const allowedTerms = new Set([...tokens(sourceText), ...tokens(contextText), ...tokens([...safeExplanationTerms].join(" "))]);
-  return tokens(answer).every((term) => allowedTerms.has(term));
+  const allowedNumbers = new Set(numericValues(sourceText + " " + contextText));
+  return numericValues(answer).every((number) => allowedNumbers.has(number));
 }
 
 function preparedResponse(records: EvidenceRecord[], mission?: MissionSummary, telemetry?: TelemetrySnapshot, providerIssue?: "unavailable" | "invalid", detailLevel: "concise" | "detailed" = "concise"): EngineerResponse {
@@ -264,7 +267,7 @@ export async function createEngineerResponse(input: unknown, dependencies: Engin
       if (result && (records.length === 0 || result.recordIds.length > 0)) {
         const citedRecords = records.filter(({ id }) => result.recordIds.includes(id));
         const answer = limitWords(result.answer, request.detailLevel === "detailed" ? 400 : 150);
-        if (!isProviderAnswerGrounded(answer, citedRecords, context.missionSummary, context.telemetrySnapshot)) {
+        if (!hasOnlySupportedNumbers(answer, citedRecords, context.missionSummary, context.telemetrySnapshot)) {
           return preparedResponse(records, context.missionSummary, context.telemetrySnapshot, "invalid", request.detailLevel);
         }
         const grounding = describeGrounding(citedRecords, context.missionSummary, context.telemetrySnapshot);

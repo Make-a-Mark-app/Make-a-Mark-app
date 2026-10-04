@@ -63,8 +63,11 @@ function hasSufficientKeywordCoverage(termCount: number, matchCount: number): bo
 }
 
 function retrieveRecords(question: string, records: EvidenceRecord[]): EvidenceRecord[] {
-  const terms = [...new Set(normalizeLiteralSearchText(question).split(" ").filter((term) => term && !stopWords.has(term)))];
-  if (!terms.length) return [];
+  const normalizedQuestion = normalizeLiteralSearchText(question);
+  const asksForReportOverview = /\b(esg|sustainability|impact)\b/.test(normalizedQuestion) && /\b(reports?|knowledge|data|information|records?|evidence|included|available|added)\b/.test(normalizedQuestion);
+  const overviewTerms = new Set(["esg", "sustainability", "impact", "report", "reports", "knowledge", "data", "information", "record", "records", "evidence", "included", "available", "added", "ai", "use"]);
+  const terms = [...new Set(normalizedQuestion.split(" ").filter((term) => term && !stopWords.has(term) && !(asksForReportOverview && overviewTerms.has(term))))];
+  if (!terms.length) return asksForReportOverview ? lookupEvidence(records, { limit: 5 }) : [];
   const exactTitleMatches = lookupEvidence(records, { query: terms.join(" "), limit: 10 })
     .filter((record) => normalizeLiteralSearchText(record.title).split(" ").filter((term) => !stopWords.has(term)).join(" ") === terms.join(" "));
   if (exactTitleMatches.length) return exactTitleMatches.slice(0, 5);

@@ -67,6 +67,32 @@ test("keyword retrieval supports the reviewed Belong and Community claims", asyn
   }
 });
 
+test("broad ESG report questions retrieve reviewed records for the provider", async () => {
+  let suppliedRecordIds: string[] = [];
+  const app = createApp({ provider: async (input) => {
+    suppliedRecordIds = input.records.map(({ id }) => id);
+    return { answer: "The reviewed ESG report records are available as evidence for questions about impact reporting.", recordIds: suppliedRecordIds };
+  } });
+  const server = createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("The test API did not bind a TCP port.");
+
+  try {
+    const response = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category: "evidence", question: "Is the ESG reports knowledge added in for the AI to use?" }),
+    });
+    const result = await response.json() as { answer: string; mode: string; citations: Array<{ recordId: string }> };
+    expect(result.mode).toBe("grounded_ai");
+    expect(result.answer).toContain("reviewed ESG report records");
+    expect(suppliedRecordIds.length).toBeGreaterThan(0);
+    expect(result.citations.map(({ recordId }) => recordId)).toEqual(suppliedRecordIds);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
 test("the Engineer declines a factual question unsupported by reviewed records or selected context", async ({ request }) => {
   for (const question of ["What is the team’s total lifetime carbon footprint?", "Does solar generation improve race performance?"]) {
     const response = await request.post("/api/engineer", { data: { category: "evidence", question } });

@@ -69,8 +69,12 @@ test("keyword retrieval supports the reviewed Belong and Community claims", asyn
 
 test("broad ESG report questions retrieve reviewed records for the provider", async () => {
   let suppliedRecordIds: string[] = [];
+  let suppliedInstructions = "";
+  let suppliedRecordKeys: string[] = [];
   const app = createApp({ provider: async (input) => {
+    suppliedInstructions = input.instructions;
     suppliedRecordIds = input.records.map(({ id }) => id);
+    suppliedRecordKeys = Object.keys(input.records[0] ?? {});
     return { answer: "The reviewed ESG report records are available as evidence for questions about impact reporting.", recordIds: suppliedRecordIds };
   } });
   const server = createServer(app);
@@ -88,6 +92,10 @@ test("broad ESG report questions retrieve reviewed records for the provider", as
     expect(result.answer).toContain("reviewed ESG report records");
     expect(suppliedRecordIds.length).toBeGreaterThan(0);
     expect(result.citations.map(({ recordId }) => recordId)).toEqual(suppliedRecordIds);
+    expect(suppliedInstructions).toContain("broad report overview");
+    expect(suppliedInstructions).toContain("Do not include figures or record counts");
+    expect(suppliedRecordKeys).not.toContain("history");
+    expect(suppliedRecordKeys).not.toContain("reviewer");
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
@@ -338,10 +346,13 @@ test("KiraAI-backed evidence answers use bounded chat completions and server-res
     expect(upstreamUrl?.href).toBe("https://kiraai.vn/api/v1/chat/completions");
     expect(upstreamOptions?.method).toBe("POST");
     expect(new Headers(upstreamOptions?.headers).get("authorization")).toBe("Bearer " + apiKey);
-    expect(requestBody).toMatchObject({ model: "gpt-oss-120b", max_tokens: 500 });
+    expect(requestBody).toMatchObject({ model: "gpt-oss-120b", max_tokens: 200 });
     expect(requestBody.messages[0].role).toBe("system");
     expect(userContext.question).toBe("What is the travel and logistics emissions reduction?");
     expect(userContext.records.map(({ id }: { id: string }) => id)).toEqual(["env-2025-travel-logistics-reduction"]);
+    expect(Object.keys(userContext.records[0]).sort()).toEqual(["claim", "id", "limitations", "reportingPeriod", "source", "title", "topic", "unit", "value", "valueDisplay"].sort());
+    expect(userContext.records[0].source).not.toHaveProperty("url");
+    expect(requestBody.max_tokens).toBe(200);
     expect(serializedResult).not.toContain(apiKey);
     expect(loggedEntries.join("\n")).not.toContain(apiKey);
     expect(loggedEntries.join("\n")).not.toContain(userContext.question);

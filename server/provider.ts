@@ -2,7 +2,6 @@ import type { EngineerProvider, EngineerProviderInput } from "./engineer.js";
 
 const defaultProviderUrl = "https://kiraai.vn/api/v1/chat/completions";
 const defaultModel = "gpt-oss-120b";
-const maxOutputTokens = 500;
 
 export function createEngineerProvider(
   environment: NodeJS.ProcessEnv,
@@ -40,7 +39,7 @@ export function createEngineerProvider(
       },
       body: JSON.stringify({
         model,
-        max_tokens: maxOutputTokens,
+        max_tokens: input.detailLevel === "concise" ? 200 : 500,
         messages: [
           { role: "system", content: input.instructions },
           {

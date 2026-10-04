@@ -67,11 +67,18 @@ test("keyword retrieval supports the reviewed Belong and Community claims", asyn
   }
 });
 
-test("broad ESG report availability questions use a prepared cited answer", async () => {
+test("broad ESG report questions synthesize reviewed records through the provider", async () => {
   let providerCalls = 0;
+  let providerInstructions = "";
+  let suppliedRecordIds: string[] = [];
   const app = createApp({ provider: async (input) => {
     providerCalls += 1;
-    return { answer: "This should not be called for an availability question.", recordIds: input.records.map(({ id }) => id) };
+    providerInstructions = input.instructions;
+    suppliedRecordIds = input.records.map(({ id }) => id);
+    return {
+      answer: "AMF1's 2025 report covers travel and logistics emissions, Aleto outcomes, and student and community engagement. It reports a 14% emissions reduction, 93% and 90% Aleto outcomes, 257 students across 14 schools and community groups, and 1,188 tCO₂e avoided.",
+      recordIds: suppliedRecordIds,
+    };
   } });
   const server = createServer(app);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -79,16 +86,23 @@ test("broad ESG report availability questions use a prepared cited answer", asyn
   if (!address || typeof address === "string") throw new Error("The test API did not bind a TCP port.");
 
   try {
-    const response = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: "evidence", question: "Is the ESG reports knowledge added in for the AI to use?" }),
-    });
-    const result = await response.json() as { answer: string; mode: string; citations: Array<{ recordId: string }> };
-    expect(result.mode).toBe("prepared_fallback");
-    expect(result.answer).toContain("KiraAI receives matching source-reviewed records");
-    expect(result.answer).toContain("not full-report ingestion");
-    expect(result.citations.length).toBeGreaterThan(0);
-    expect(providerCalls).toBe(0);
+    for (const question of [
+      "Is the ESG reports knowledge added in for the AI to use?",
+      "What sustainability and ESG stuff from AMF1?",
+      "What sustainability and ESG information does AMF1 report?",
+    ]) {
+      const response = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: "evidence", question }),
+      });
+      const result = await response.json() as { answer: string; mode: string; citations: Array<{ recordId: string }> };
+      expect(result.mode).toBe("grounded_ai");
+      expect(result.answer).toContain("Aleto outcomes");
+      expect(result.citations).toHaveLength(6);
+    }
+    expect(suppliedRecordIds).toHaveLength(6);
+    expect(providerInstructions).toContain("Synthesize the supplied records");
+    expect(providerCalls).toBe(3);
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
@@ -352,6 +366,23 @@ test("KiraAI-backed evidence answers use bounded chat completions and server-res
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
+});
+
+test("KiraAI gets enough generation budget for multi-record syntheses", async () => {
+  const dataset = parseEvidenceDataset(JSON.parse(readFileSync(new URL("../shared/data/evidence.r1.v2.json", import.meta.url), "utf8")));
+  let requestBody: Record<string, unknown> | undefined;
+  const provider = createEngineerProvider({
+    ENGINEER_PROVIDER_ENABLED: "true",
+    ENGINEER_PROVIDER_API_KEY: "fake-kira-key",
+  }, async (_input, options) => {
+    requestBody = JSON.parse(String(options?.body));
+    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ answer: "A grounded synthesis.", recordIds: dataset.records.slice(0, 3).map(({ id }) => id) }) } }] }), { status: 200 });
+  });
+  if (!provider) throw new Error("The configured provider was not created.");
+
+  await provider({ instructions: "Synthesize the supplied records.", question: "Summarize these records.", detailLevel: "concise", records: dataset.records.slice(0, 3) });
+
+  expect(requestBody).toMatchObject({ model: "gpt-oss-120b", max_tokens: 1200, reasoning_effort: "low" });
 });
 
 test("a configured provider endpoint is ignored by the initial release", async () => {

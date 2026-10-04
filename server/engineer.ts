@@ -52,36 +52,20 @@ export type EngineerDependencies = {
   provider?: EngineerProvider;
 };
 
-const stopWords = new Set(["a", "an", "and", "are", "at", "about", "can", "carbon", "describe", "did", "does", "do", "explain", "figure", "footprint", "for", "happen", "happens", "has", "have", "how", "i", "include", "includes", "in", "is", "it", "lifetime", "many", "me", "mean", "means", "my", "of", "on", "or", "please", "report", "say", "show", "shows", "summarize", "team", "tell", "the", "this", "to", "total", "was", "were", "what", "when", "with", "work", "s"]);
+const stopWords = new Set(["a", "an", "and", "are", "at", "about", "can", "carbon", "describe", "did", "does", "do", "explain", "figure", "footprint", "for", "from", "happen", "happens", "has", "have", "how", "i", "include", "includes", "in", "is", "it", "lifetime", "many", "me", "mean", "means", "my", "of", "on", "or", "please", "report", "say", "show", "shows", "summarize", "team", "tell", "the", "this", "to", "total", "use", "was", "were", "what", "when", "with", "work", "s"]);
 const groundingInstructions = "Explain only the supplied reviewed records and explicitly selected fictional context. Paraphrase naturally; you do not need to copy the source wording. Do not add facts, values, units, source metadata, mission outcomes, or telemetry details. Keep any figures within the supplied records. Return JSON with only answer (a short explanation) and recordIds (IDs from the supplied records that support it). Do not create citations or URLs.";
-const reportOverviewTerms = new Set(["esg", "sustainability", "impact", "report", "reports", "knowledge", "data", "information", "record", "records", "evidence", "included", "available", "added", "ai", "use"]);
+const reportOverviewInstructions = `${groundingInstructions} Synthesize the supplied records into a concise overview of AMF1's sustainability and ESG actions and outcomes. Cover the Environment, Belong, and Community topics represented in these records. Keep qualifications such as participant-reported outcomes and avoided emissions. Use figures only when supported by the cited records; do not invent an overall ESG rating, targets, or Governance facts. Answer in 3–5 short sentences or bullets, under 100 words. Include every record ID that supports the synthesis in recordIds. Return valid JSON only, without Markdown.`;
+const reportOverviewTerms = new Set(["amf1", "aston", "esg", "f1", "impact", "information", "knowledge", "martin", "report", "reports", "records", "record", "evidence", "included", "available", "added", "ai", "use", "stuff", "sustainability", "data"]);
 
 function hasReportOverviewIntent(question: string): boolean {
   const normalizedQuestion = normalizeLiteralSearchText(question);
-  return /\b(esg|sustainability|impact)\b/.test(normalizedQuestion) && /\b(reports?|knowledge|data|information|records?|evidence|included|available|added)\b/.test(normalizedQuestion);
+  return /\b(esg|sustainability|impact)\b/.test(normalizedQuestion) && /\b(amf1|reports?|knowledge|data|information|records?|evidence|included|available|added|stuff|topics?)\b/.test(normalizedQuestion);
 }
 
 function isReportOverviewQuestion(question: string): boolean {
   if (!hasReportOverviewIntent(question)) return false;
   const normalizedQuestion = normalizeLiteralSearchText(question);
   return normalizedQuestion.split(" ").every((term) => stopWords.has(term) || reportOverviewTerms.has(term));
-}
-
-function reportOverviewResponse(records: EvidenceRecord[], providerConfigured: boolean): EngineerResponse {
-  const providerStatus = providerConfigured
-    ? "KiraAI receives matching source-reviewed records for supported evidence questions."
-    : "KiraAI is not configured, so the Engineer uses prepared responses.";
-  const answer = `Yes. ${providerStatus} This prototype uses a curated set of reviewed records from the 2025 Make A Mark Report, not full-report ingestion.`;
-  return {
-    answer,
-    whatSourceStates: "The retrieved citations show examples of the source-reviewed records available in this prototype.",
-    whatItMeans: "Ask about a specific report topic for a focused evidence answer.",
-    limitations: ["This is a prepared description of the prototype's evidence library, not a new report finding."],
-    citations: citationsFor(records),
-    relatedRecordIds: records.map(({ id }) => id),
-    mode: "prepared_fallback",
-    modeLabel: "Prepared answer",
-  };
 }
 
 function recordsForProvider(records: EvidenceRecord[]): EngineerProviderRecord[] {
@@ -113,8 +97,9 @@ function hasSufficientKeywordCoverage(termCount: number, matchCount: number): bo
 function retrieveRecords(question: string, records: EvidenceRecord[]): EvidenceRecord[] {
   const normalizedQuestion = normalizeLiteralSearchText(question);
   const broadReportIntent = hasReportOverviewIntent(question);
+  if (broadReportIntent && isReportOverviewQuestion(question)) return lookupEvidence(records, { limit: 10 });
   const terms = [...new Set(normalizedQuestion.split(" ").filter((term) => term && !stopWords.has(term) && !(broadReportIntent && reportOverviewTerms.has(term))))];
-  if (!terms.length) return broadReportIntent ? lookupEvidence(records, { limit: 5 }) : [];
+  if (!terms.length) return broadReportIntent ? lookupEvidence(records, { limit: 10 }) : [];
   const exactTitleMatches = lookupEvidence(records, { query: terms.join(" "), limit: 10 })
     .filter((record) => normalizeLiteralSearchText(record.title).split(" ").filter((term) => !stopWords.has(term)).join(" ") === terms.join(" "));
   if (exactTitleMatches.length) return exactTitleMatches.slice(0, 5);
@@ -275,7 +260,7 @@ function parseProviderOutput(value: unknown, allowedIds: Set<string>): { answer:
   if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
   const result = value as Record<string, unknown>;
   if (Object.keys(result).some((key) => !["answer", "recordIds"].includes(key))) return null;
-  if (typeof result.answer !== "string" || !result.answer.trim() || result.answer.length > 1500 || !Array.isArray(result.recordIds) || result.recordIds.length > 5 || !result.recordIds.every((id) => typeof id === "string" && id.length <= 100)) return null;
+  if (typeof result.answer !== "string" || !result.answer.trim() || result.answer.length > 1500 || !Array.isArray(result.recordIds) || result.recordIds.length > 10 || !result.recordIds.every((id) => typeof id === "string" && id.length <= 100)) return null;
   return { answer: result.answer.trim(), recordIds: [...new Set(result.recordIds.filter((id): id is string => typeof id === "string" && allowedIds.has(id)))] };
 }
 
@@ -294,10 +279,6 @@ export async function createEngineerResponse(input: unknown, dependencies: Engin
   if (!records.length && !selectedContextSupportsQuestion(request.question, context.missionSummary, context.telemetrySnapshot)) {
     return noAnswer(request.category === "evidence" ? "unsupported" : "category_mismatch");
   }
-  if (request.category === "evidence" && isReportOverviewQuestion(request.question)) {
-    return reportOverviewResponse(records, Boolean(dependencies.provider));
-  }
-
   if (request.category === "mission") {
     return preparedResponse([], context.missionSummary, undefined, undefined, request.detailLevel);
   }
@@ -309,7 +290,7 @@ export async function createEngineerResponse(input: unknown, dependencies: Engin
     let providerIssue: "unavailable" | "invalid" = "invalid";
     try {
       const providerInput: EngineerProviderInput = {
-        instructions: groundingInstructions,
+        instructions: request.category === "evidence" && isReportOverviewQuestion(request.question) ? reportOverviewInstructions : groundingInstructions,
         question: request.question,
         detailLevel: request.detailLevel,
         records: recordsForProvider(records),

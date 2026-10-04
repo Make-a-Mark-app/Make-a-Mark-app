@@ -31,6 +31,7 @@ export function createEngineerProvider(
   const model = environment.ENGINEER_PROVIDER_MODEL?.trim() || defaultModel;
 
   return async (input: EngineerProviderInput) => {
+    const needsExpandedGenerationBudget = input.records.length > 2;
     const response = await fetcher(providerUrl, {
       method: "POST",
       headers: {
@@ -39,7 +40,7 @@ export function createEngineerProvider(
       },
       body: JSON.stringify({
         model,
-        max_tokens: input.detailLevel === "concise" ? 600 : 800,
+        max_tokens: needsExpandedGenerationBudget ? 1200 : input.detailLevel === "concise" ? 600 : 800,
         reasoning_effort: input.detailLevel === "concise" ? "low" : "medium",
         messages: [
           { role: "system", content: input.instructions },
@@ -53,7 +54,7 @@ export function createEngineerProvider(
           },
         ],
       }),
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(needsExpandedGenerationBudget ? 45_000 : 15_000),
     });
     if (!response.ok) throw new Error(`Provider returned HTTP ${response.status}.`);
     const payload: unknown = await response.json();

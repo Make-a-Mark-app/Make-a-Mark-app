@@ -49,4 +49,4 @@ No database, vector index, or model-serving container is needed. Keep the API us
 
 ## Handoff
 
-Proceed to [Step 5](step-05-local-containers-and-observability.md) with health, metrics, log-field, and configuration requirements. For Vertex AI setup, see [Step 7](step-07-cloud-model-and-operations.md).
+Proceed to [Step 5](step-05-local-containers-and-observability.md) with health, metrics, log-field, and configuration requirements. For KiraAI setup and private operations, see [Step 7](step-07-kiraai-and-private-operations.md).

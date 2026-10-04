@@ -30,8 +30,9 @@ services:
       APP_ENV: local
       PORT: "4178"
       ENGINEER_PROVIDER_ENABLED: ${ENGINEER_PROVIDER_ENABLED:-false}
-      ENGINEER_PROVIDER_URL: ${ENGINEER_PROVIDER_URL:-}
+      ENGINEER_PROVIDER_URL: ${ENGINEER_PROVIDER_URL:-https://kiraai.vn/api/v1/chat/completions}
       ENGINEER_PROVIDER_API_KEY: ${ENGINEER_PROVIDER_API_KEY:-}
+      ENGINEER_PROVIDER_MODEL: ${ENGINEER_PROVIDER_MODEL:-gpt-oss-120b}
       LOG_DIRECTORY: /var/log/cognizant
     volumes:
       - service-logs:/var/log/cognizant
@@ -49,8 +50,8 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
-      - --storage.tsdb.retention.time=7d
-      - --storage.tsdb.retention.size=512MB
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=850MB
       - --web.enable-lifecycle
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -84,6 +85,7 @@ services:
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
       - service-logs:/var/log/cognizant:ro
+      - alloy-data:/var/lib/alloy/data
     depends_on:
       api:
         condition: service_healthy
@@ -141,3 +143,4 @@ volumes:
   loki-data:
   prometheus-data:
   service-logs:
+  alloy-data:

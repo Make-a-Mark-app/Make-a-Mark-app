@@ -25,11 +25,18 @@ export type EngineerResponse = {
   dependencyErrorCategory?: "request_failed" | "invalid_response";
 };
 
+export type EngineerProviderRecord = Pick<EvidenceRecord, "id" | "title" | "topic" | "claim" | "reportingPeriod" | "limitations"> & {
+  value?: EvidenceRecord["value"];
+  valueDisplay?: EvidenceRecord["valueDisplay"];
+  unit?: EvidenceRecord["unit"];
+  source: Pick<EvidenceRecord["source"], "title" | "edition" | "location">;
+};
+
 export type EngineerProviderInput = {
   instructions: string;
   question: string;
   detailLevel: "concise" | "detailed";
-  records: EvidenceRecord[];
+  records: EngineerProviderRecord[];
   missionSummary?: MissionSummary;
   telemetrySnapshot?: TelemetrySnapshot;
 };
@@ -45,9 +52,33 @@ export type EngineerDependencies = {
   provider?: EngineerProvider;
 };
 
-const stopWords = new Set(["a", "an", "and", "are", "at", "about", "can", "carbon", "describe", "did", "does", "do", "explain", "figure", "footprint", "for", "happen", "happens", "has", "have", "how", "i", "include", "includes", "in", "is", "it", "lifetime", "many", "me", "mean", "means", "my", "of", "on", "or", "please", "report", "say", "show", "shows", "summarize", "team", "tell", "the", "this", "to", "total", "was", "were", "what", "when", "with", "work", "s"]);
-const safeExplanationTerms = new Set(["a", "about", "according", "an", "and", "are", "as", "at", "based", "by", "claim", "context", "data", "describes", "during", "evidence", "figure", "from", "has", "have", "in", "is", "it", "lists", "means", "measure", "measured", "of", "on", "only", "period", "record", "reported", "reports", "result", "route", "says", "selected", "shows", "simulated", "snapshot", "source", "states", "the", "their", "this", "to", "telemetry", "unavailable", "uses", "was", "were", "with", "year"]);
-const groundingInstructions = "Explain only the supplied reviewed records and explicitly selected fictional context. Do not add facts, values, units, source metadata, mission outcomes, or telemetry details. Return JSON with only answer (a short explanation) and recordIds (IDs from the supplied records that support it). Do not create citations or URLs.";
+const stopWords = new Set(["a", "an", "and", "are", "at", "about", "can", "carbon", "describe", "did", "does", "do", "explain", "figure", "footprint", "for", "from", "happen", "happens", "has", "have", "how", "i", "include", "includes", "in", "is", "it", "lifetime", "many", "me", "mean", "means", "my", "of", "on", "or", "please", "report", "say", "show", "shows", "summarize", "team", "tell", "the", "this", "to", "total", "use", "was", "were", "what", "when", "with", "work", "s"]);
+const groundingInstructions = "Explain only the supplied reviewed records and explicitly selected fictional context. Paraphrase naturally; you do not need to copy the source wording. Do not add facts, values, units, source metadata, mission outcomes, or telemetry details. Keep any figures within the supplied records. Return JSON with only answer (a short explanation) and recordIds (IDs from the supplied records that support it). Do not create citations or URLs.";
+const reportOverviewInstructions = `${groundingInstructions} Synthesize the supplied records into a concise overview of AMF1's sustainability and ESG actions and outcomes. Cover the Environment, Belong, and Community topics represented in these records. Keep qualifications such as participant-reported outcomes and avoided emissions. Use figures only when supported by the cited records; do not invent an overall ESG rating, targets, or Governance facts. Answer in 3–5 short sentences or bullets, under 100 words. Include every record ID that supports the synthesis in recordIds. Return valid JSON only, without Markdown.`;
+const reportOverviewTerms = new Set(["amf1", "aston", "esg", "f1", "impact", "information", "knowledge", "martin", "report", "reports", "records", "record", "evidence", "included", "available", "added", "ai", "use", "stuff", "sustainability", "data"]);
+
+function hasReportOverviewIntent(question: string): boolean {
+  const normalizedQuestion = normalizeLiteralSearchText(question);
+  return /\b(esg|sustainability|impact)\b/.test(normalizedQuestion) && /\b(amf1|reports?|knowledge|data|information|records?|evidence|included|available|added|stuff|topics?)\b/.test(normalizedQuestion);
+}
+
+function isReportOverviewQuestion(question: string): boolean {
+  if (!hasReportOverviewIntent(question)) return false;
+  const normalizedQuestion = normalizeLiteralSearchText(question);
+  return normalizedQuestion.split(" ").every((term) => stopWords.has(term) || reportOverviewTerms.has(term));
+}
+
+function recordsForProvider(records: EvidenceRecord[]): EngineerProviderRecord[] {
+  return records.map(({ id, title, topic, claim, value, valueDisplay, unit, reportingPeriod, source, limitations }) => ({
+    id, title, topic, claim,
+    ...(value !== undefined && { value }),
+    ...(valueDisplay !== undefined && { valueDisplay }),
+    ...(unit !== undefined && { unit }),
+    reportingPeriod,
+    source: { title: source.title, edition: source.edition, location: source.location },
+    limitations,
+  }));
+}
 
 function tokens(value: string): string[] {
   return (value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").match(/[a-z0-9]+/g) ?? []).map((word) => {
@@ -64,8 +95,11 @@ function hasSufficientKeywordCoverage(termCount: number, matchCount: number): bo
 }
 
 function retrieveRecords(question: string, records: EvidenceRecord[]): EvidenceRecord[] {
-  const terms = [...new Set(normalizeLiteralSearchText(question).split(" ").filter((term) => term && !stopWords.has(term)))];
-  if (!terms.length) return [];
+  const normalizedQuestion = normalizeLiteralSearchText(question);
+  const broadReportIntent = hasReportOverviewIntent(question);
+  if (broadReportIntent && isReportOverviewQuestion(question)) return lookupEvidence(records, { limit: 10 });
+  const terms = [...new Set(normalizedQuestion.split(" ").filter((term) => term && !stopWords.has(term) && !(broadReportIntent && reportOverviewTerms.has(term))))];
+  if (!terms.length) return broadReportIntent ? lookupEvidence(records, { limit: 10 }) : [];
   const exactTitleMatches = lookupEvidence(records, { query: terms.join(" "), limit: 10 })
     .filter((record) => normalizeLiteralSearchText(record.title).split(" ").filter((term) => !stopWords.has(term)).join(" ") === terms.join(" "));
   if (exactTitleMatches.length) return exactTitleMatches.slice(0, 5);
@@ -162,7 +196,11 @@ function describeTelemetrySignals(telemetry: TelemetrySnapshot): string {
   return telemetry.signals.map((signal) => signal.name + ": " + (signal.value === null ? "Unavailable" : signal.value) + " " + signal.unit).join("; ");
 }
 
-function isProviderAnswerGrounded(answer: string, records: EvidenceRecord[], mission?: MissionSummary, telemetry?: TelemetrySnapshot): boolean {
+function numericValues(value: string): string[] {
+  return [...value.matchAll(/\b\d[\d,]*(?:\.\d+)?\b/g)].map(([number]) => number.replace(/,/g, ""));
+}
+
+function hasOnlySupportedNumbers(answer: string, records: EvidenceRecord[], mission?: MissionSummary, telemetry?: TelemetrySnapshot): boolean {
   const sourceText = records.flatMap((record) => [
     record.id, record.title, record.topic, record.claim, record.reviewNote, String(record.value ?? ""), record.valueDisplay ?? "", record.unit ?? "",
     record.reportingPeriod ?? "", record.source.title, record.source.edition, record.source.location ?? "", ...record.limitations,
@@ -171,8 +209,8 @@ function isProviderAnswerGrounded(answer: string, records: EvidenceRecord[], mis
     mission && [mission.title, mission.selectedRoute, mission.feedback].join(" "),
     telemetry && [telemetry.stepId, telemetry.timestamp, telemetry.status, ...telemetry.signals.flatMap((signal) => [signal.id, signal.name, signal.value === null ? "Unavailable" : String(signal.value), signal.unit])].join(" "),
   ].filter(Boolean).join(" ");
-  const allowedTerms = new Set([...tokens(sourceText), ...tokens(contextText), ...tokens([...safeExplanationTerms].join(" "))]);
-  return tokens(answer).every((term) => allowedTerms.has(term));
+  const allowedNumbers = new Set(numericValues(sourceText + " " + contextText));
+  return numericValues(answer).every((number) => allowedNumbers.has(number));
 }
 
 function preparedResponse(records: EvidenceRecord[], mission?: MissionSummary, telemetry?: TelemetrySnapshot, providerIssue?: "unavailable" | "invalid", detailLevel: "concise" | "detailed" = "concise"): EngineerResponse {
@@ -222,7 +260,7 @@ function parseProviderOutput(value: unknown, allowedIds: Set<string>): { answer:
   if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
   const result = value as Record<string, unknown>;
   if (Object.keys(result).some((key) => !["answer", "recordIds"].includes(key))) return null;
-  if (typeof result.answer !== "string" || !result.answer.trim() || result.answer.length > 1500 || !Array.isArray(result.recordIds) || result.recordIds.length > 5 || !result.recordIds.every((id) => typeof id === "string" && id.length <= 100)) return null;
+  if (typeof result.answer !== "string" || !result.answer.trim() || result.answer.length > 1500 || !Array.isArray(result.recordIds) || result.recordIds.length > 10 || !result.recordIds.every((id) => typeof id === "string" && id.length <= 100)) return null;
   return { answer: result.answer.trim(), recordIds: [...new Set(result.recordIds.filter((id): id is string => typeof id === "string" && allowedIds.has(id)))] };
 }
 
@@ -241,7 +279,6 @@ export async function createEngineerResponse(input: unknown, dependencies: Engin
   if (!records.length && !selectedContextSupportsQuestion(request.question, context.missionSummary, context.telemetrySnapshot)) {
     return noAnswer(request.category === "evidence" ? "unsupported" : "category_mismatch");
   }
-
   if (request.category === "mission") {
     return preparedResponse([], context.missionSummary, undefined, undefined, request.detailLevel);
   }
@@ -253,10 +290,10 @@ export async function createEngineerResponse(input: unknown, dependencies: Engin
     let providerIssue: "unavailable" | "invalid" = "invalid";
     try {
       const providerInput: EngineerProviderInput = {
-        instructions: groundingInstructions,
+        instructions: request.category === "evidence" && isReportOverviewQuestion(request.question) ? reportOverviewInstructions : groundingInstructions,
         question: request.question,
         detailLevel: request.detailLevel,
-        records,
+        records: recordsForProvider(records),
         ...(context.missionSummary && { missionSummary: context.missionSummary }),
         ...(context.telemetrySnapshot && { telemetrySnapshot: context.telemetrySnapshot }),
       };
@@ -264,7 +301,7 @@ export async function createEngineerResponse(input: unknown, dependencies: Engin
       if (result && (records.length === 0 || result.recordIds.length > 0)) {
         const citedRecords = records.filter(({ id }) => result.recordIds.includes(id));
         const answer = limitWords(result.answer, request.detailLevel === "detailed" ? 400 : 150);
-        if (!isProviderAnswerGrounded(answer, citedRecords, context.missionSummary, context.telemetrySnapshot)) {
+        if (!hasOnlySupportedNumbers(answer, citedRecords, context.missionSummary, context.telemetrySnapshot)) {
           return preparedResponse(records, context.missionSummary, context.telemetrySnapshot, "invalid", request.detailLevel);
         }
         const grounding = describeGrounding(citedRecords, context.missionSummary, context.telemetrySnapshot);

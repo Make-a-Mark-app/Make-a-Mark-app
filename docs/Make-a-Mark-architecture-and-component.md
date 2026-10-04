@@ -380,9 +380,8 @@ There is no `postgres`, `pgvector`, `redis`, `ingest`, user-session, or model-se
 - Pin container image versions. Use the production Nginx image for a demo; keep Vite hot reload in a separate development override if needed.
 - Keep provider credentials in an ignored local `.env` or approved secret mechanism. Commit blank placeholders only. Pass secrets only to `api`.
 - Include health checks for web/API and observability services. Model-provider readiness is optional and must not mark the core app unavailable.
-- `docker compose down` stops containers and preserves observability volumes.
-- The full local reset removes local Grafana, Loki, and Prometheus state. It does not modify source-reviewed files, browser `localStorage`, or the packaged demo fixture.
-- Clear browser `localStorage` separately to reset player discoveries. Advancing the fixture to its first step resets the live-style walkthrough.
+- Normal shutdown preserves observability state; a full reset removes only the current Compose project's observability state. Versioned sources and browser Discovery data remain separate. See the [local Compose runbook](../README.md#run-the-full-local-compose-stack) for commands, volume inventory, and the browser reset action.
+- Advancing the fixture to its first step resets the live-style walkthrough.
 
 ## Observability signals
 
@@ -436,8 +435,8 @@ Use the eight standalone guides in [Build Order](build-plan/index.md). Each guid
 | 3 | [Telemetry and evidence](build-plan/step-03-telemetry-and-evidence.md) | Add user-advanced fixture states and source-reviewed records |
 | 4 | [API and Race Engineer](build-plan/step-04-api-and-race-engineer.md) | Add bounded search, optional model adapter, citations, and fallback |
 | 5 | [Local containers and observability](build-plan/step-05-local-containers-and-observability.md) | Package Docker Compose stack and local Grafana signals |
-| 6 | [Optional Google Cloud deployment](build-plan/step-06-google-cloud-deployment.md) | Host a shareable demo on Cloud Run behind HTTPS routing |
-| 7 | [Optional cloud model and operations](build-plan/step-07-cloud-model-and-operations.md) | Configure Vertex/other provider, IAM/secrets, logs, and alerts |
+| 6 | [Private demo over Tailscale](build-plan/step-06-private-tailscale-demo.md) | Share the local Compose app over tailnet-only HTTPS |
+| 7 | [KiraAI and private operations](build-plan/step-07-kiraai-and-private-operations.md) | Configure server-side KiraAI, wallet awareness, and local observability |
 | 8 | [Inclusive acceptance and rehearsal](build-plan/step-08-acceptance-and-rehearsal.md) | Verify accessibility, trust, failures, operations, and demo repeatability |
 
 Steps 6 and 7 are optional for local-only work. Step 8 applies to either run profile.

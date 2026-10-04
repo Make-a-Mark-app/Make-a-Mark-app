@@ -68,12 +68,12 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "decbytes", "min": 0, "max": 536870912 }, "overrides": [] },
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0, "max": 1073741824 }, "overrides": [] },
       "gridPos": { "h": 6, "w": 12, "x": 0, "y": 11 },
       "id": 7,
       "options": { "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" } },
-      "targets": [{ "expr": "prometheus_tsdb_storage_blocks_bytes", "legendFormat": "Prometheus block storage (512 MB configured cap)", "refId": "A" }],
-      "title": "Prometheus storage use (7-day / 512 MB retention cap)",
+      "targets": [{ "expr": "prometheus_tsdb_storage_blocks_bytes", "legendFormat": "Prometheus TSDB blocks (1 GiB target)", "refId": "A" }],
+      "title": "Prometheus storage (15-day retention / 850 MiB block cap / 1 GiB target)",
       "type": "timeseries"
     },
     {
@@ -83,7 +83,17 @@
       "id": 8,
       "options": { "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" } },
       "targets": [{ "expr": "sum(count_over_time({environment=\"local\"}[1h]))", "legendFormat": "Log lines", "refId": "A" }],
-      "title": "Local log volume (one hour; Loki keeps seven days)",
+      "title": "Local log volume (one hour; Loki keeps 7 days; 2 GiB target)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 0.8 }, { "color": "red", "value": 0.9 }] } }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 17 },
+      "id": 9,
+      "options": { "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false }, "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [{ "expr": "loki_ingester_wal_disk_usage_percent", "legendFormat": "Loki WAL disk usage", "refId": "A" }],
+      "title": "Loki WAL disk usage (write pressure begins near 90%)",
       "type": "timeseries"
     }
   ],

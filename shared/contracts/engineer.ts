@@ -24,7 +24,7 @@ export function parseEngineerRequest(value: unknown): EngineerRequest | null {
   if (value.category !== "evidence" && value.category !== "mission" && value.category !== "telemetry") return null;
   if (typeof value.question !== "string") return null;
   const question = value.question.trim();
-  if (question.length < 1 || question.length > 500) return null;
+  if (question.length < 1 || question.length > 2000) return null;
   const detailLevel = value.detailLevel === undefined ? "concise" : value.detailLevel;
   if (detailLevel !== "concise" && detailLevel !== "detailed") return null;
 

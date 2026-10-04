@@ -61,11 +61,13 @@ test("the local Compose contract exposes only loopback web and Grafana ports", (
   assert.equal(apiEnvironment.ENGINEER_PROVIDER_ENABLED, "false");
   assert.equal(apiEnvironment.ENGINEER_PROVIDER_URL, "");
   assert.equal(apiEnvironment.ENGINEER_PROVIDER_API_KEY, "");
+  assert.equal(apiEnvironment.ENGINEER_PROVIDER_MODEL, "gpt-oss-120b");
   for (const [serviceName, service] of Object.entries(config.services)) {
     if (serviceName !== "api") {
       assert.equal(service.environment?.ENGINEER_PROVIDER_URL, undefined, `${serviceName} must not receive provider configuration`);
       assert.equal(service.environment?.ENGINEER_PROVIDER_API_KEY, undefined, `${serviceName} must not receive provider credentials`);
       assert.equal(service.environment?.ENGINEER_PROVIDER_ENABLED, undefined, `${serviceName} must not receive the provider flag`);
+      assert.equal(service.environment?.ENGINEER_PROVIDER_MODEL, undefined, `${serviceName} must not receive the provider model configuration`);
     }
   }
 

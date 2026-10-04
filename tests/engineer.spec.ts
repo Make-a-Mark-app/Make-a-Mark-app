@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { parseEvidenceDataset } from "../shared/contracts/evidence";
 import { createApp } from "../server/app";
+import { createEngineerProvider } from "../server/provider";
 
 test("the Engineer answers a supported evidence question with server-resolved citations", async ({ request }) => {
   const response = await request.post("/api/engineer", {
@@ -236,7 +237,7 @@ test("conflicting retrieved records produce no answer", async () => {
 test("the Engineer rejects invalid questions and untrusted context selections", async ({ request }) => {
   const invalidInputs = [
     { category: "evidence", question: "   " },
-    { category: "evidence", question: "x".repeat(501) },
+    { category: "evidence", question: "x".repeat(2001) },
     { category: "evidence", question: "What does the report say?", detailLevel: "verbose" },
     { question: "What does the report say?" },
     { category: "evidence", question: "What does the report say?", detailLevel: "concise", context: { telemetry: { stepId: "step-01" } } },
@@ -254,6 +255,102 @@ test("the Engineer rejects invalid questions and untrusted context selections", 
   for (const data of invalidInputs) {
     const response = await request.post("/api/engineer", { data });
     expect(response.status()).toBe(400);
+  }
+});
+
+test("the Engineer accepts questions up to 2,000 characters and rejects longer questions", async ({ request }) => {
+  const accepted = await request.post("/api/engineer", { data: { category: "evidence", question: "x".repeat(2000) } });
+  const rejected = await request.post("/api/engineer", { data: { category: "evidence", question: "x".repeat(2001) } });
+
+  expect(accepted.status()).toBe(200);
+  expect((await accepted.json()).mode).toBe("no_answer");
+  expect(rejected.status()).toBe(400);
+});
+
+test("KiraAI-backed evidence answers use bounded chat completions and server-resolved citations", async () => {
+  const apiKey = "fake-kira-key";
+  let upstreamUrl: URL | undefined;
+  let upstreamOptions: RequestInit | undefined;
+  const provider = createEngineerProvider({
+    ENGINEER_PROVIDER_ENABLED: "true",
+    ENGINEER_PROVIDER_API_KEY: apiKey,
+  }, async (input, options) => {
+    upstreamUrl = input instanceof URL ? input : new URL(String(input));
+    upstreamOptions = options;
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        answer: "AMF1 reports a 14% reduction in travel and logistics emissions.",
+        recordIds: ["env-2025-travel-logistics-reduction"],
+      }) } }],
+    }), { status: 200 });
+  });
+  const loggedEntries: string[] = [];
+  const server = createServer(createApp({
+    provider,
+    logger: { write: (entry) => loggedEntries.push(JSON.stringify(entry)) },
+  }));
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("The test API did not bind a TCP port.");
+
+  try {
+    const response = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category: "evidence", question: "What is the travel and logistics emissions reduction?" }),
+    });
+    const result = await response.json() as { mode: string; citations: Array<{ recordId: string; sourceUrl: string }> };
+    const requestBody = JSON.parse(String(upstreamOptions?.body));
+    const userContext = JSON.parse(requestBody.messages[1].content);
+    const serializedResult = JSON.stringify(result);
+
+    expect(response.status).toBe(200);
+    expect(result.mode).toBe("grounded_ai");
+    expect(result.citations).toEqual([expect.objectContaining({
+      recordId: "env-2025-travel-logistics-reduction",
+      sourceUrl: "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2025.pdf#page=8",
+    })]);
+    expect(upstreamUrl?.href).toBe("https://kiraai.vn/api/v1/chat/completions");
+    expect(upstreamOptions?.method).toBe("POST");
+    expect(new Headers(upstreamOptions?.headers).get("authorization")).toBe("Bearer " + apiKey);
+    expect(requestBody).toMatchObject({ model: "gpt-oss-120b", max_tokens: 500 });
+    expect(requestBody.messages[0].role).toBe("system");
+    expect(userContext.question).toBe("What is the travel and logistics emissions reduction?");
+    expect(userContext.records.map(({ id }: { id: string }) => id)).toEqual(["env-2025-travel-logistics-reduction"]);
+    expect(serializedResult).not.toContain(apiKey);
+    expect(loggedEntries.join("\n")).not.toContain(apiKey);
+    expect(loggedEntries.join("\n")).not.toContain(userContext.question);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
+test("KiraAI authorization, rate-limit, timeout, and malformed-output failures never retry", async () => {
+  const failures: Array<{ name: string; respond: (url: URL, options: RequestInit) => Promise<Response>; rejects: boolean }> = [
+    { name: "authorization", respond: async () => new Response("unauthorized", { status: 401 }), rejects: true },
+    { name: "rate limit", respond: async () => new Response("limited", { status: 429 }), rejects: true },
+    { name: "timeout", respond: async () => { throw new DOMException("Timed out", "TimeoutError"); }, rejects: true },
+    { name: "malformed output", respond: async () => new Response(JSON.stringify({ choices: [{ message: { content: "not JSON" } }] }), { status: 200 }), rejects: false },
+  ];
+
+  for (const failure of failures) {
+    let callCount = 0;
+    const provider = createEngineerProvider({
+      ENGINEER_PROVIDER_ENABLED: "true",
+      ENGINEER_PROVIDER_API_KEY: "fake-kira-key",
+    }, async (input, options) => {
+      callCount += 1;
+      return failure.respond(input instanceof URL ? input : new URL(String(input)), options);
+    });
+    if (!provider) throw new Error("The configured KiraAI provider was not created.");
+    const call = provider({
+      instructions: "Ground only in reviewed records.",
+      question: "What is the travel and logistics emissions reduction?",
+      detailLevel: "concise",
+      records: [],
+    });
+    if (failure.rejects) await expect(call, failure.name).rejects.toThrow();
+    else await expect(call, failure.name).resolves.toBeNull();
+    expect(callCount, failure.name).toBe(1);
   }
 });
 

@@ -1,5 +1,9 @@
 import type { EngineerProvider, EngineerProviderInput } from "./engineer.js";
 
+const defaultProviderUrl = "https://kiraai.vn/api/v1/chat/completions";
+const defaultModel = "gpt-oss-120b";
+const maxOutputTokens = 500;
+
 export function createEngineerProvider(
   environment: NodeJS.ProcessEnv,
   fetcher: typeof fetch = fetch,
@@ -10,10 +14,10 @@ export function createEngineerProvider(
     throw new Error("ENGINEER_PROVIDER_ENABLED must be either true or false.");
   }
 
-  const endpoint = environment.ENGINEER_PROVIDER_URL?.trim();
-  if (!endpoint) {
-    throw new Error("ENGINEER_PROVIDER_URL must be set when ENGINEER_PROVIDER_ENABLED is true.");
-  }
+  const apiKey = environment.ENGINEER_PROVIDER_API_KEY?.trim();
+  if (!apiKey) return undefined;
+
+  const endpoint = environment.ENGINEER_PROVIDER_URL?.trim() || defaultProviderUrl;
 
   let providerUrl: URL;
   try {
@@ -25,18 +29,45 @@ export function createEngineerProvider(
     throw new Error("ENGINEER_PROVIDER_URL must be an HTTPS URL without embedded credentials or a fragment.");
   }
 
-  const apiKey = environment.ENGINEER_PROVIDER_API_KEY?.trim();
+  const model = environment.ENGINEER_PROVIDER_MODEL?.trim() || defaultModel;
+
   return async (input: EngineerProviderInput) => {
     const response = await fetcher(providerUrl, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        ...(apiKey && { authorization: `Bearer ${apiKey}` }),
+        authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify(input),
+      body: JSON.stringify({
+        model,
+        max_tokens: maxOutputTokens,
+        messages: [
+          { role: "system", content: input.instructions },
+          {
+            role: "user",
+            content: JSON.stringify({
+              question: input.question,
+              detailLevel: input.detailLevel,
+              records: input.records,
+            }),
+          },
+        ],
+      }),
       signal: AbortSignal.timeout(15_000),
     });
     if (!response.ok) throw new Error(`Provider returned HTTP ${response.status}.`);
-    return response.json();
+    const payload: unknown = await response.json();
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+    const choices = (payload as { choices?: unknown }).choices;
+    if (!Array.isArray(choices) || !choices[0] || typeof choices[0] !== "object") return null;
+    const message = (choices[0] as { message?: unknown }).message;
+    if (!message || typeof message !== "object") return null;
+    const content = (message as { content?: unknown }).content;
+    if (typeof content !== "string") return null;
+    try {
+      return JSON.parse(content);
+    } catch {
+      return null;
+    }
   };
 }

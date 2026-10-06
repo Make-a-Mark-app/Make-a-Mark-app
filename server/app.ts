@@ -7,6 +7,9 @@ import { missionScenario } from "../shared/mission.js";
 import { createEngineerResponse, type EngineerProvider } from "./engineer.js";
 import type { ServiceLogWriter } from "./logging.js";
 import { localMetrics } from "./observability/metrics.js";
+import { ImpactStore } from "./impact-store.js";
+import { PilotStore, type PilotAction } from "./pilot-store.js";
+import type { ImpactExchangeKind } from "../shared/contracts/impact-totals.js";
 
 const evidenceDataset = parseEvidenceDataset(JSON.parse(
   readFileSync(new URL("../shared/data/evidence.r1.v2.json", import.meta.url), "utf8"),
@@ -15,14 +18,16 @@ const telemetryDataset = parseTelemetryDataset(JSON.parse(
   readFileSync(new URL("../shared/data/telemetry.r1.v2.json", import.meta.url), "utf8"),
 ));
 
-export function createApp(options: { provider?: EngineerProvider; engineerRecords?: EvidenceRecord[]; logger?: ServiceLogWriter } = {}): Express {
+export function createApp(options: { provider?: EngineerProvider; engineerRecords?: EvidenceRecord[]; logger?: ServiceLogWriter; impactStore?: ImpactStore; pilotStore?: PilotStore } = {}): Express {
   const app = express();
+  const impactStore = options.impactStore ?? new ImpactStore();
+  const pilotStore = options.pilotStore ?? new PilotStore();
 
   app.use((request, response, next) => {
     const startedAt = process.hrtime.bigint();
     response.once("finish", () => {
       const routePath = typeof request.route?.path === "string" ? request.route.path : request.path;
-      const route = ["/api/health", "/api/mission", "/api/mission/outcome", "/api/evidence", "/api/telemetry", "/api/engineer", "/metrics"].includes(routePath) ? routePath : "other";
+      const route = ["/api/health", "/api/mission", "/api/mission/outcome", "/api/evidence", "/api/telemetry", "/api/engineer", "/api/impact-totals", "/api/impact-exchanges", "/api/pilot", "/api/pilot/metrics", "/metrics"].includes(routePath) ? routePath : "other";
       const method = request.method === "GET" || request.method === "POST" ? request.method : "OTHER";
       const statusClass = Math.floor(response.statusCode / 100) + "xx";
       const severity = response.statusCode >= 500 ? "error" : response.statusCode >= 400 ? "warn" : "info";
@@ -52,6 +57,49 @@ export function createApp(options: { provider?: EngineerProvider; engineerRecord
 
   app.get("/api/health", (_request, response) => {
     response.json({ status: "ok", mode: "prototype", evidence: "source-reviewed" });
+  });
+
+  app.get("/api/impact-totals", (_request, response) => {
+    const totals = impactStore.totals();
+    if (!totals) { response.status(503).json({ error: "Demo exchange totals are unavailable." }); return; }
+    response.json(totals);
+  });
+
+  app.post("/api/impact-exchanges", (request, response) => {
+    const { kind, eventId } = request.body ?? {};
+    if ((kind !== "tree" && kind !== "water") || typeof eventId !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)) {
+      localMetrics.recordValidationFailure("/api/impact-exchanges");
+      response.status(400).json({ error: "Invalid demo exchange." }); return;
+    }
+    const totals = impactStore.record(kind as ImpactExchangeKind, eventId);
+    if (!totals) { response.status(503).json({ error: "Could not record the demo exchange." }); return; }
+    response.json(totals);
+  });
+
+  const isId = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+  app.get("/api/pilot/metrics", (_request, response) => {
+    const metrics = pilotStore.metrics();
+    if (!metrics) { response.status(503).json({ error: "Pilot metrics are unavailable." }); return; }
+    response.json(metrics);
+  });
+  app.get("/api/pilot", (request, response) => {
+    if (!isId(request.query.id)) { response.status(400).json({ error: "Invalid participant ID." }); return; }
+    response.json({ participant: pilotStore.participant(request.query.id) });
+  });
+  app.post("/api/pilot", (request, response) => {
+    const { id, action, referralCode, recall, interest } = request.body ?? {};
+    const validAction = ["start", "complete", "share", "offer_use", "feedback"].includes(action);
+    if (!isId(id) || !validAction || (referralCode !== undefined && !isId(referralCode)) ||
+      (recall !== undefined && recall !== "yes" && recall !== "no") ||
+      (interest !== undefined && !["more", "same", "less"].includes(interest)) ||
+      (action === "feedback" && (!recall || !interest))) {
+      localMetrics.recordValidationFailure("/api/pilot");
+      response.status(400).json({ error: "Invalid pilot event." }); return;
+    }
+    const participant = pilotStore.record(id, action as PilotAction, { referralCode, recall, interest });
+    if (!participant) { response.status(409).json({ error: "Complete the preceding pilot step or try again later." }); return; }
+    response.json({ participant, metrics: pilotStore.metrics() });
   });
 
   app.get("/api/mission", (_request, response) => {

@@ -6,13 +6,16 @@ import {
 import { evidenceRecords, illustrativeSamples, routeOptions, telemetrySnapshots, type EvidenceRecord, type IllustrativeSample, type RouteId } from "./data";
 import { EMPTY_DISCOVERY, hasDiscovery, parseDiscoveryRecap, type DiscoveryRecap } from "../shared/contracts/discovery";
 import { createMissionOutcome } from "../shared/contracts/mission";
-import { awardMissionCompletion, EMPTY_IMPACT_REWARDS, IMPACT_CONTRIBUTION_REDEMPTION_COST, MAX_IMPACT_REWARDS_COUNT, parseImpactRewardsState, redeemImpactContribution, rolloverImpactRewardsYear, type ImpactRewardsState } from "../shared/contracts/impact-rewards";
+import { awardMissionCompletion, EMPTY_IMPACT_REWARDS, IMPACT_CONTRIBUTION_REDEMPTION_COST, parseImpactRewardsState, redeemImpactContribution, redeemWaterContribution, rolloverImpactRewardsYear, type ImpactRewardsState } from "../shared/contracts/impact-rewards";
 import type { EngineerCategory } from "../shared/contracts/engineer";
 import { evidenceTopicTags, lookupEvidence, normalizeLiteralSearchText } from "../shared/contracts/evidence";
 import { missionScenario } from "../shared/mission";
 import { ImpactRewards } from "./ImpactRewards";
+import { PilotCampaign } from "./PilotCampaign";
+import type { PilotAction, PilotParticipant } from "../server/pilot-store";
+import { parseImpactTotals, type ImpactExchangeKind, type ImpactTotals } from "../shared/contracts/impact-totals";
 
-type Screen = "home" | "world" | "mission" | "library" | "telemetry" | "engineer" | "summary" | "about" | "rewards";
+type Screen = "home" | "world" | "mission" | "library" | "telemetry" | "engineer" | "summary" | "about" | "rewards" | "campaign";
 type EngineerReply = {
   answer: string;
   whatSourceStates: string;
@@ -42,12 +45,13 @@ const navItems: Array<{ id: Screen; label: string; href: string }> = [
   { id: "library", label: "Evidence library", href: "/evidence" },
   { id: "telemetry", label: "Simulated live view", href: "/telemetry" },
   { id: "about", label: "How to read this", href: "/method" },
+  { id: "campaign", label: "Pilot campaign", href: "/campaign" },
   { id: "rewards", label: "Impact rewards", href: "/rewards" },
 ];
 
 const screenPaths: Record<Screen, string> = {
-  home: "/", world: "/world", mission: "/mission/freight", library: "/library",
-  telemetry: "/telemetry", engineer: "/engineer", summary: "/summary", about: "/about", rewards: "/rewards",
+  home: "/", world: "/world", mission: "/mission", library: "/evidence",
+  telemetry: "/telemetry", engineer: "/engineer", summary: "/summary", about: "/method", rewards: "/rewards", campaign: "/campaign",
 };
 
 function readSavedDiscovery(): DiscoveryRecap {
@@ -93,6 +97,7 @@ function screenFromPath(path: string): Screen {
   if (route === "/summary") return "summary";
   if (route === "/method" || route === "/about") return "about";
   if (route === "/rewards") return "rewards";
+  if (route === "/campaign") return "campaign";
   return "home";
 }
 
@@ -107,11 +112,29 @@ function Logo() {
   );
 }
 
+function readPilotId(): string {
+  try {
+    const saved = localStorage.getItem("impact-drive-pilot-id");
+    if (saved && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(saved)) return saved;
+    const id = window.crypto.randomUUID();
+    localStorage.setItem("impact-drive-pilot-id", id);
+    return id;
+  } catch { return window.crypto.randomUUID(); }
+}
+
 function App() {
   const [screen, setScreen] = useState<Screen>(() => screenFromPath(window.location.pathname));
   const [menuOpen, setMenuOpen] = useState(false);
   const [discovery, setDiscovery] = useState<DiscoveryRecap>(readSavedDiscovery);
   const [rewards, setRewards] = useState<RewardsModel>(readSavedRewards);
+  const [pilotId] = useState(readPilotId);
+  const [pilot, setPilot] = useState<PilotParticipant | null>(null);
+  const [pilotLoading, setPilotLoading] = useState(true);
+  const [pilotError, setPilotError] = useState("");
+  const referralCode = useRef((() => {
+    const value = new URLSearchParams(window.location.search).get("ref");
+    return value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) ? value : null;
+  })());
   const [missionCompletionId, setMissionCompletionId] = useState(() => window.crypto.randomUUID());
   const awardedMissionCompletionId = useRef<string | null>(null);
   const [car, setCar] = useState({ x: 50, y: 30 });
@@ -137,6 +160,15 @@ function App() {
   const engineerSubmissionReady = engineerCategory === "evidence"
     || (engineerCategory === "mission" && includeMissionContext && Boolean(discovery.routeChoice))
     || (engineerCategory === "telemetry" && includeTelemetryContext);
+
+  useEffect(() => {
+    if (screen !== "campaign") return;
+    fetch(`/api/pilot?id=${encodeURIComponent(pilotId)}`)
+      .then(async (response) => { if (!response.ok) throw new Error(); return response.json() as Promise<{ participant: PilotParticipant | null }>; })
+      .then(({ participant }) => setPilot(participant))
+      .catch(() => setPilotError("Pilot progress could not be loaded. Your demo actions may not be counted."))
+      .finally(() => setPilotLoading(false));
+  }, [pilotId, screen]);
 
   useEffect(() => {
     try {
@@ -242,7 +274,27 @@ function App() {
     setSelectedRecord(null);
   }, []);
 
+  async function recordPilot(action: PilotAction, extra: { recall?: "yes" | "no"; interest?: "more" | "same" | "less" } = {}): Promise<boolean> {
+    try {
+      const response = await fetch("/api/pilot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: pilotId, action, ...(action === "start" && referralCode.current ? { referralCode: referralCode.current } : {}), ...extra }) });
+      if (!response.ok) throw new Error();
+      const result = await response.json() as { participant: PilotParticipant };
+      setPilot(result.participant);
+      setPilotError("");
+      return true;
+    } catch {
+      setPilotError("This demo action could not be recorded. Please try again when the pilot service is available.");
+      return false;
+    }
+  }
+
+  async function startPilot() {
+    await recordPilot("start");
+    navigate("mission");
+  }
+
   function chooseRoute(routeId: RouteId) {
+    if (!pilot?.started) void recordPilot("start");
     if (discovery.missionComplete) {
       setMissionCompletionId(window.crypto.randomUUID());
       awardedMissionCompletionId.current = null;
@@ -263,49 +315,37 @@ function App() {
     setStatus("Your local recap was cleared.");
   }
 
-  function resetRewards() {
-    if (!window.confirm("Reset your demo Impact Credits and mission completion history on this device?")) return;
-    try {
-      localStorage.removeItem("impact-drive-rewards");
-      setRewards({ value: EMPTY_IMPACT_REWARDS, storage: "persistent", notice: "Your rewards were reset.", dirty: false });
-    } catch {
-      setRewards({
-        value: EMPTY_IMPACT_REWARDS,
-        storage: "memory",
-        notice: "Your rewards were reset for this visit, but storage is unavailable. The empty state won’t persist after reload or tab close.",
-        dirty: false,
-      });
-    }
-  }
-
-  function recordSimulatedEarning(action: "video" | "merchandise") {
-    if (rewards.value.credits >= MAX_IMPACT_REWARDS_COUNT) {
-      setStatus("The demo Impact Credit limit has been reached. No additional credit was added.");
-      return;
-    }
-    setRewards((current) => current.value.credits >= MAX_IMPACT_REWARDS_COUNT
-      ? current
-      : { ...current, value: { ...current.value, credits: current.value.credits + 1 }, dirty: "save" });
-    setStatus(action === "video"
-      ? "Demo video completion recorded. No video view was verified or payment transferred; no order, carbon credit, or offset was issued, and no impact was measured."
-      : "Demo merchandise action recorded. No purchase or product eligibility was verified; no payment was transferred, order placed, carbon credit or offset issued, or impact measured.");
-  }
-
-  function redeemContribution() {
-    const redemption = redeemImpactContribution(rewards.value);
+  async function redeemContribution(kind: ImpactExchangeKind): Promise<ImpactTotals | null> {
+    const redemption = kind === "tree" ? redeemImpactContribution(rewards.value) : redeemWaterContribution(rewards.value);
     if (redemption.kind === "insufficient") {
-      setStatus(`You need ${IMPACT_CONTRIBUTION_REDEMPTION_COST} Impact Credits to record a demo contribution.`);
-      return;
+      setStatus(`You need ${IMPACT_CONTRIBUTION_REDEMPTION_COST} Carbon Coins to record a demo exchange.`);
+      return null;
     }
     if (redemption.kind === "limit") {
-      setStatus("The demo contribution limit has been reached. Your rewards were not changed.");
-      return;
+      setStatus("The demo contribution limit has been reached. Your coins were not changed.");
+      return null;
     }
-    setRewards((current) => {
-      const result = redeemImpactContribution(current.value);
-      return result.kind === "redeemed" ? { ...current, value: result.state, dirty: "save" } : current;
-    });
-    setStatus("Demo contribution recorded. No tree was planted, payment transferred, order placed, carbon credit or offset issued, or impact measured.");
+    try {
+      const response = await fetch("/api/impact-exchanges", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, eventId: window.crypto.randomUUID() }),
+      });
+      if (!response.ok) throw new Error("Exchange unavailable");
+      const totals = parseImpactTotals(await response.json());
+      if (!totals) throw new Error("Invalid exchange response");
+      setRewards((current) => {
+        const result = kind === "tree" ? redeemImpactContribution(current.value) : redeemWaterContribution(current.value);
+        return result.kind === "redeemed" ? { ...current, value: result.state, dirty: "save" } : current;
+      });
+      setStatus(kind === "tree"
+        ? "Demo tree exchange recorded. No tree was planted or impact measured."
+        : "Demo $1 water exchange recorded. No donation was made or impact measured.");
+      return totals;
+    } catch {
+      setStatus("The demo exchange could not be recorded. Your coins were not spent.");
+      return null;
+    }
   }
 
   async function askEngineer(event: FormEvent<HTMLFormElement>) {
@@ -340,7 +380,7 @@ function App() {
     } finally { setAsking(false); }
   }
 
-  function finishMission() {
+  async function finishMission() {
     if (!discovery.routeChoice || discovery.missionComplete || awardedMissionCompletionId.current === missionCompletionId) return;
     awardedMissionCompletionId.current = missionCompletionId;
     const award = awardMissionCompletion(rewards.value, missionCompletionId);
@@ -353,6 +393,7 @@ function App() {
     } else {
       setStatus("Mission complete. The demo Impact Credit limit has been reached.");
     }
+    if (await recordPilot("start")) await recordPilot("complete");
   }
 
   const activeNav = screen === "home" ? "" : screen;
@@ -380,7 +421,8 @@ function App() {
         {screen === "engineer" && <Engineer question={question} setQuestion={setQuestion} category={engineerCategory} setCategory={setEngineerCategory} canSubmit={engineerSubmissionReady} reply={reply} asking={asking} onSubmit={askEngineer} currentChoice={discovery.routeChoice} detailLevel={detailLevel} setDetailLevel={setDetailLevel} includeMissionContext={includeMissionContext} setIncludeMissionContext={setIncludeMissionContext} includeTelemetryContext={includeTelemetryContext} setIncludeTelemetryContext={setIncludeTelemetryContext} telemetrySnapshot={telemetrySnapshots[telemetryIndex]} />}
         {screen === "summary" && <Summary discovery={discovery} onNavigate={navigate} onClear={clearDiscoveries} status={status} />}
         {screen === "about" && <TrustGuide onNavigate={navigate} />}
-        {screen === "rewards" && <ImpactRewards credits={rewards.value.credits} year={rewards.value.year} treesThisYear={rewards.value.treesThisYear} treesAllTime={rewards.value.treesAllTime} notice={rewards.notice} feedback={status} onEarn={recordSimulatedEarning} onRedeem={redeemContribution} onReset={resetRewards} onNavigate={navigate} />}
+        {screen === "rewards" && <ImpactRewards credits={rewards.value.credits} treesThisYear={rewards.value.treesThisYear} treesAllTime={rewards.value.treesAllTime} notice={rewards.notice} feedback={status} onRedeem={redeemContribution} />}
+        {screen === "campaign" && <PilotCampaign participant={pilot} loading={pilotLoading} error={pilotError} onStart={startPilot} onAction={recordPilot} />}
       </main>
 
       <footer className="site-footer">
@@ -500,6 +542,7 @@ function World({ car, moveCar, found, onFind, status, onNavigate }: { car: { x: 
 }
 
 function Mission({ discovery, onChoose, onFinish, onRetry, onNavigate, status }: { discovery: DiscoveryRecap; onChoose: (id: RouteId) => void; onFinish: () => void; onRetry: () => void; onNavigate: (screen: Screen) => void; status: string }) {
+  const [lessonAnswer, setLessonAnswer] = useState<"source" | "game" | null>(null);
   const route = routeOptions.find((item) => item.id === discovery.routeChoice);
   const outcome = route ? createMissionOutcome(missionScenario, {
     missionId: missionScenario.missionId,
@@ -521,7 +564,7 @@ function Mission({ discovery, onChoose, onFinish, onRetry, onNavigate, status }:
               <span className="mission-route-icon">{item.id === "air" ? <PlaneIcon /> : item.id === "sea" ? <ShipIcon /> : <TruckIcon />}</span><span className="mission-route-body"><strong>{item.name}</strong><small>{item.mode}</small><em>{item.character}</em></span><span className="route-choice-state">{discovery.routeChoice === item.id ? <Check size={16} /> : <span />}</span>
             </button>)}
           </div>
-          {outcome && <div className="mission-result" aria-live="polite"><div className="result-topline"><span>YOUR GAME RESULT</span><span>{outcome.outcomeLabel.toUpperCase()}</span></div><h3>{outcome.feedback}</h3><p>This describes this mission only. It does not measure emissions or a real delivery.</p><div className="result-actions">{discovery.missionComplete ? <button className="button button-primary" onClick={onRetry}>Retry mission <ArrowRight size={16} /></button> : <button className="button button-primary" onClick={onFinish}>Complete mission <ArrowRight size={16} /></button>}<button className="button button-quiet" onClick={() => onNavigate("engineer")}>Ask the Race Engineer <Sparkles size={15} /></button></div></div>}
+          {outcome && <div className="mission-result" aria-live="polite"><div className="result-topline"><span>YOUR GAME RESULT</span><span>{outcome.outcomeLabel.toUpperCase()}</span></div><h3>{outcome.feedback}</h3><p>This describes this mission only. It does not measure emissions or a real delivery.</p><fieldset className="mission-learning-check"><legend>Before you finish: which statement is supported?</legend><label><input type="radio" name="lesson-answer" checked={lessonAnswer === "source"} onChange={() => setLessonAnswer("source")} /> AMF1 sustainability claims need a source and reporting period.</label><label><input type="radio" name="lesson-answer" checked={lessonAnswer === "game"} onChange={() => setLessonAnswer("game")} /> This game route proves a real emissions reduction.</label>{lessonAnswer === "game" && <small>Try again: the route is fictional. Real claims need reported evidence.</small>}</fieldset><div className="result-actions">{discovery.missionComplete ? <><button className="button button-primary" onClick={() => onNavigate("campaign")}>View unlocked rewards <ArrowRight size={16} /></button><button className="button button-quiet" onClick={onRetry}>Retry mission <ArrowRight size={16} /></button></> : <button className="button button-primary" onClick={onFinish} disabled={lessonAnswer !== "source"}>Complete mission <ArrowRight size={16} /></button>}<button className="button button-quiet" onClick={() => onNavigate("engineer")}>Ask the Race Engineer <Sparkles size={15} /></button></div></div>}
           {!route && <div className="mission-empty"><span>01</span><p>Choose a route to see your game result.</p></div>}
           {status && <p className="success-line" role="status"><Check size={16} />{status}</p>}
         </section>

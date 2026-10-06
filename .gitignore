@@ -147,3 +147,7 @@ vite.config.ts.timestamp-*
 playwright-report/
 test-results/
 /.tailnet-state/
+data/impact-totals.json
+data/impact-totals.json.*.tmp
+data/pilot-demo.json
+data/pilot-demo.json.*.tmp

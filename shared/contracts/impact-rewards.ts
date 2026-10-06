@@ -105,3 +105,11 @@ export function redeemImpactContribution(state: ImpactRewardsState): ImpactContr
     },
   };
 }
+
+export function redeemWaterContribution(state: ImpactRewardsState): ImpactContributionRedemption {
+  if (state.credits < IMPACT_CONTRIBUTION_REDEMPTION_COST) return { kind: "insufficient", state };
+  return {
+    kind: "redeemed",
+    state: { ...state, credits: state.credits - IMPACT_CONTRIBUTION_REDEMPTION_COST },
+  };
+}

@@ -33,8 +33,11 @@ services:
       ENGINEER_PROVIDER_URL: ${ENGINEER_PROVIDER_URL:-}
       ENGINEER_PROVIDER_API_KEY: ${ENGINEER_PROVIDER_API_KEY:-}
       LOG_DIRECTORY: /var/log/cognizant
+      IMPACT_TOTALS_FILE: /var/lib/cognizant/impact-totals.json
+      PILOT_DATA_FILE: /var/lib/cognizant/pilot-demo.json
     volumes:
       - service-logs:/var/log/cognizant
+      - impact-totals:/var/lib/cognizant
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4178/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 15s
@@ -141,3 +144,4 @@ volumes:
   loki-data:
   prometheus-data:
   service-logs:
+  impact-totals:

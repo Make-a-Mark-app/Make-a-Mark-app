@@ -100,13 +100,13 @@ test("visitors can combine pillar, controlled topic, and reporting-period filter
 test("the About page reflects the reviewed library and Engineer boundary", async ({ page }) => {
   await page.goto("/about");
   await expect(page.getByText(/limited set of source-reviewed claims/i)).toBeVisible();
-  await expect(page.getByText(/retrieves only reviewed records and context you choose to include/i)).toBeVisible();
+  await expect(page.getByText(/retrieves reviewed records and only the mission or simulated telemetry context you choose to include/i)).toBeVisible();
   await expect(page.getByText("This prototype uses illustrative content only.")).toHaveCount(0);
 });
 
 test("the Home page points to the available source-reviewed library", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText(/small source-reviewed set/i)).toBeVisible();
+  await expect(page.getByText(/source-reviewed claims are available to browse/i)).toBeVisible();
   await expect(page.getByText("Reviewed evidence will appear here.")).toHaveCount(0);
 });
 

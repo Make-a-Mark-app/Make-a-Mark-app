@@ -68,6 +68,7 @@ test("visitors can complete and retry the fictional route without an impact scor
   await expect(page.getByText(/does not measure emissions or a real delivery/i)).toBeVisible();
   await expect(page.getByText(/score|impact result/i)).toHaveCount(0);
 
+  await page.getByLabel("AMF1 sustainability claims need a source and reporting period.").check();
   await page.getByRole("button", { name: "Complete mission" }).click();
   await expect(page.getByRole("status")).toContainText("Mission complete");
   await page.getByRole("button", { name: "Retry mission" }).click();
@@ -79,6 +80,7 @@ test("retry preserves other discoveries and visitors can clear the local recap",
   await page.goto("/world");
   await page.getByRole("button", { name: /Discover freight crate and open mission/ }).click();
   await page.getByRole("radio", { name: /Road/ }).click();
+  await page.getByLabel("AMF1 sustainability claims need a source and reporting period.").check();
   await page.getByRole("button", { name: "Complete mission" }).click();
   await page.getByRole("button", { name: "Retry mission" }).click();
 
@@ -96,6 +98,7 @@ test("retry preserves other discoveries and visitors can clear the local recap",
 test("completing the mission does not record a World discovery", async ({ page }) => {
   await page.goto("/mission/freight");
   await page.getByRole("radio", { name: /Air/ }).click();
+  await page.getByLabel("AMF1 sustainability claims need a source and reporting period.").check();
   await page.getByRole("button", { name: "Complete mission" }).click();
   await page.getByRole("button", { name: "My discoveries" }).click();
 

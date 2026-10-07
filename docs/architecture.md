@@ -227,7 +227,7 @@ The existing prototype includes React/Vite, an Express API, a deterministic fict
 
 ## Related plans
 
-- [Eight-step build order and detailed guides](build-plan/index.md)
+- [Nine-step build order and detailed guides](build-plan/index.md)
 
 - [Component and container plan](component-and-container-plan.md)
 - [R1 development plan](r1-development-plan.md)

@@ -1,0 +1,20 @@
+@font-face { font-family: Garage; src: local('Avenir Next'), local('Avenir'), local('Segoe UI'); font-display: swap; }
+
+.garage-chrome {
+  --lime: #d6ea81;
+  position: relative;
+  z-index: 20;
+  color: #fff;
+  font-family: Garage, Arial, sans-serif;
+}
+
+.garage-chrome .premium-header {
+  position: relative;
+  background: linear-gradient(180deg, #061b18, #12302a);
+}
+.garage-chrome .team-logo-link { display: block; line-height: 0; }
+.garage-chrome .navigation-drawer { font-family: Garage, Arial, sans-serif; }
+.garage-chrome .navigation-drawer .eyebrow { color: var(--lime); }
+.garage-chrome button { cursor: pointer; }
+.garage-chrome button:focus-visible { outline: 2px solid var(--lime); outline-offset: 6px; }
+.garage-chrome .team-logo-link:focus-visible { outline: 2px solid var(--lime); outline-offset: 6px; }

@@ -1,0 +1,55 @@
+# Step 9 Verify Inclusive Acceptance and Rehearse the Demo
+
+**Depends on:** Steps 1–5 for local use; Steps 6–7 if using the hosted GCP profile.  
+**Outcome:** The prototype can be presented consistently, its trust boundaries are understood, and accessibility and reset behavior are checked.
+
+## Function
+
+Run the acceptance matrix for the chosen run profile. This is a practical product/usability check, not evidence of production readiness or a statistically representative market study. Rehearse failures as well as the happy path.
+
+## Services and tools
+
+- Browser at desktop and mobile widths; keyboard and touch input.
+- Local profile: Docker Compose, Grafana, Prometheus, Loki, and Alloy.
+- Hosted profile: Google Cloud Console, Cloud Logging, Cloud Monitoring, and Error Reporting; Cloud Armor if configured.
+- Hosted model credentials are optional. Test the app with provider disabled and enabled.
+- No AMF1 account, live feed, or private AMF1 system access is required.
+
+## Actions
+
+1. **Check both entry routes.** Start from the freight mission and separately enter the evidence library without playing.
+2. **Rehearse the mission.** Complete a choice, inspect fictional feedback, retry, and verify deterministic outcome. Confirm that telemetry and evidence never alter the mission result.
+3. **Rehearse all telemetry states.** Manually reach updating, delayed, stale, and unavailable. Confirm unit, simulated timestamp, status, and simulated-data label remain visible. Reload/reset and repeat the same sequence.
+4. **Trace a factual claim.** Open an Environment, Belong, and Community record. Check source URL, edition/publication date, reporting period, review status, location where available, and limitations.
+5. **Check illustrative data.** Confirm the exact illustrative-data sentence stays adjacent to each placeholder at desktop and mobile widths.
+6. **Ask supported and unsupported questions.** Confirm a supported answer cites retrieved records. Confirm absent/weak evidence returns a limitation or no-answer response rather than a general model guess.
+7. **Exercise answer modes.** Test provider disabled, provider success, timeout, permission/quota failure, malformed output, prepared fallback, and no-answer. Verify only user submission triggers provider calls and concise/detailed depth is user-selected.
+8. **Check accessibility paths.** Use keyboard only, touch, visible focus, screen zoom, reduced motion, and the untimed non-driving route. Confirm reading order and control labels are understandable.
+9. **Inspect privacy and operations.** Review representative API logs and metrics. Confirm no question, prompt, source passage, demo values, secret, profile, or user-controlled ID is present. Review latency/errors in Grafana or cloud monitoring tools.
+10. **Test resets.** Reset browser discovery state separately. Run Compose `down` and full volume reset only where expected. For GCP, verify the rollback/delete instructions and that source files are not stored only in resettable service state.
+11. **Rehearse Impact Rewards.** Earn one credit through mission completion and through each explicit demo action. Confirm the page labels video completion and merchandise eligibility as simulated. Redeem at ten credits; verify the threshold, balance change, browser-local current-year/all-time totals, and the separate illustrative campaign placeholder and fictional leaderboard. Reset rewards independently. State plainly that no view or purchase is verified and no tree is planted or offset issued.
+12. **Run a directional desirability check.** Use a small convenience sample across newer/long-time fans and concept age ranges (18–35, 36–54, 55+). Ask participants to interpret one simulated indicator, complete or bypass the mission, find a claim’s source, and explain what the demo rewards do and do not represent. Record sample size and limitations; do not generalize results to the whole audience.
+13. **Rehearse a short demo script.** Show direct entry, mission, all feed states, one source record, one supported and one unsupported question, fallback behavior, and the rewards earning/redemption loop. State plainly that the feed is scripted and reward totals are simulated.
+
+## Evidence to retain
+
+- Acceptance checklist with pass/fail and issues.
+- Screenshots or notes showing labels at desktop/mobile widths.
+- Rewards acceptance notes showing credit earning, redemption threshold, local reset, and simulated-result labels.
+- A short rehearsal script and reset instructions.
+- Directional user-check notes with sample size, consent/privacy handling, and limitations.
+- For hosted runs: deployed image digests, service URL, health/alert view, and a resource teardown note (no secrets).
+
+## Release criteria
+
+- Every core mission and library flow works without a model credential.
+- All simulated, reported, illustrative, and fictional categories are visibly distinct.
+- Keyboard/touch, reduced motion, untimed non-driving route, and readable responsive layout are usable.
+- Citations, fallbacks, no-answer, logs, privacy boundaries, and resets behave as planned.
+- Rewards state stays browser-local; campaign totals, leaderboard entries, and tree contributions are clearly identified as illustrative or fictional.
+- Presenter can reproduce the same demo without implying an AMF1 live feed or measured impact.
+- Unresolved defects and limits are stated honestly before the prototype is shared.
+
+## Handoff
+
+After acceptance, collect defects and decide separately whether to implement fixes, add another mission, connect a real data feed, collect accounts, or move beyond the R1 prototype. None of those changes is implied by passing this rehearsal.

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1672" height="941" viewBox="0 0 1672 941">
+  <defs><filter id="glow" x="-10%" y="-40%" width="120%" height="180%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.5"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+  <!-- One continuous exterior contour. No spokes, panels, lettering or internal detail. -->
+  <path fill="none" stroke="#d6ea81" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" filter="url(#glow)" d="M 55,462 Q 51,458 61,458 L 208,457 Q 219,457 222,467 L 226,486 Q 304,468 416,451 L 480,449 L 485,435 L 517,432 L 517,424 L 539,424 L 539,433 L 562,437 L 565,458 Q 578,465 582,470 L 607,469 Q 662,456 693,472 Q 720,487 747,508 Q 787,505 826,510 Q 846,500 867,499 Q 890,498 902,510 Q 928,516 939,543 Q 990,556 1048,584 L 1073,595 L 1060,606 L 1070,620 L 1029,628 L 960,628 Q 946,649 914,654 Q 890,659 867,654 Q 830,650 813,631 L 259,633 Q 245,654 214,655 Q 182,660 149,651 Q 119,642 105,619 L 85,618 L 79,558 L 67,548 L 62,498 Z"/>
+</svg>

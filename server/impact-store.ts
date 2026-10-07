@@ -40,13 +40,21 @@ export class ImpactStore {
       eventIds: [...this.state.eventIds.slice(-9999), eventId],
     };
     if (!parseImpactTotals(next)) return null;
+    return this.persist(next) ? this.totals() : null;
+  }
+
+  reset(): ImpactTotals | null {
+    return this.persist({ trees: 0, waterDollars: 0, eventIds: [] }) ? this.totals() : null;
+  }
+
+  private persist(next: StoredTotals): boolean {
     try {
       mkdirSync(dirname(this.file), { recursive: true });
       const temporaryFile = `${this.file}.${process.pid}.tmp`;
       writeFileSync(temporaryFile, JSON.stringify(next), { mode: 0o600 });
       renameSync(temporaryFile, this.file);
       this.state = next;
-      return this.totals();
-    } catch { return null; }
+      return true;
+    } catch { return false; }
   }
 }

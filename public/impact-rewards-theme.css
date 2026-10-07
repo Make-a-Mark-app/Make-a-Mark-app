@@ -1,0 +1,266 @@
+/* Impact rewards follows the light teal resource-hub visual system. */
+.rewards-page {
+  --rewards-ink: #00231f;
+  --rewards-teal: #00665e;
+  --rewards-muted: #52716b;
+  --rewards-soft: #f0f6f2;
+  --rewards-border: #d2e0da;
+  width: min(1320px, 91.5%);
+  max-width: 1320px;
+  min-height: calc(100vh - 146px);
+  margin: 0 auto;
+  padding: clamp(58px, 7vw, 112px) 0 84px;
+  background: #fff;
+  color: var(--rewards-ink);
+}
+.rewards-page > h1 {
+  margin: 0 0 15px;
+  color: var(--rewards-ink);
+  font: 600 clamp(48px, 7vw, 88px)/.98 "DM Sans", sans-serif;
+  letter-spacing: -.07em;
+  text-align: left;
+}
+.rewards-page .shop-globe {
+  width: min(100%, 430px);
+  margin: 0 auto -12px;
+  filter: drop-shadow(0 18px 24px rgba(0, 53, 47, .12));
+}
+.rewards-global-totals { width: min(100%, 770px); }
+.rewards-global-totals > div + div { border-color: var(--rewards-border); }
+.rewards-global-totals strong {
+  color: var(--rewards-ink);
+  font-family: "DM Sans", sans-serif;
+  font-weight: 600;
+  letter-spacing: -.07em;
+}
+.rewards-global-totals span { color: var(--rewards-teal); font-family: "DM Sans", sans-serif; font-weight: 600; }
+.rewards-global-note { color: var(--rewards-muted); }
+.rewards-balance {
+  border: 1px solid var(--rewards-border);
+  border-radius: 8px;
+  background: var(--rewards-soft);
+  color: var(--rewards-ink);
+}
+.rewards-balance svg, .rewards-status { color: var(--rewards-teal); }
+.rewards-exchange-grid { gap: 22px; margin-top: 28px; }
+.rewards-exchange-card {
+  min-height: 250px;
+  padding: 26px;
+  border: 1px solid #d7e3de;
+  border-radius: 8px;
+  background: #fff;
+}
+.rewards-exchange-water { background: #fff; }
+.rewards-exchange-icon, .rewards-exchange-water .rewards-exchange-icon {
+  border-color: #b8cbc5;
+  color: var(--rewards-teal);
+}
+.rewards-exchange-card h2 {
+  margin: 17px 0 8px;
+  color: var(--rewards-ink);
+  font: 600 clamp(22px, 2.5vw, 30px)/1.15 "DM Sans", sans-serif;
+  letter-spacing: -.04em;
+}
+.rewards-exchange-card p { color: var(--rewards-muted); }
+.rewards-exchange-cost { color: var(--rewards-teal); }
+.rewards-exchange-card .button {
+  min-height: 44px;
+  border-radius: 5px;
+  background: var(--rewards-teal);
+  color: #fff;
+}
+.rewards-exchange-card .button:hover:not(:disabled) { background: #004f48; }
+.impact-pilot-section {
+  width: 100%;
+  margin: 72px auto 0;
+  padding-top: 62px;
+  border-top: 1px solid var(--rewards-border);
+}
+.impact-pilot-intro { padding: 0 0 24px; }
+.impact-pilot-intro p, .pilot-eyebrow, .pilot-steps span,
+.pilot-reward-type, .pilot-rules span {
+  color: var(--rewards-teal);
+  font: 600 10px "DM Mono", monospace;
+  letter-spacing: .12em;
+}
+.impact-pilot-intro h2 {
+  margin: 0 0 13px;
+  color: var(--rewards-ink);
+  font: 600 clamp(36px, 5vw, 58px)/1.04 "DM Sans", sans-serif;
+  letter-spacing: -.055em;
+}
+.impact-pilot-intro span { max-width: 680px; color: var(--rewards-muted); }
+.rewards-page .pilot-embedded, .rewards-page .pilot-page {
+  min-height: 0;
+  padding: 0;
+  background: #fff;
+  color: var(--rewards-ink);
+}
+.rewards-page .pilot-wrap { width: 100%; }
+.rewards-page .pilot-data-note, .rewards-page .pilot-invite {
+  max-width: 760px;
+  padding: 14px 17px;
+  border: 1px solid var(--rewards-border);
+  border-left: 3px solid var(--rewards-teal);
+  border-radius: 0 6px 6px 0;
+  background: var(--rewards-soft);
+  color: #365b55;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.rewards-page .pilot-steps { gap: 12px; margin: 34px 0; }
+.rewards-page .pilot-steps li {
+  padding: 18px;
+  border: 1px solid #d7e3de;
+  border-top: 3px solid #b8cbc5;
+  border-radius: 8px;
+  background: #fff;
+}
+.rewards-page .pilot-steps li.is-current, .rewards-page .pilot-steps li.is-done { border-top-color: var(--rewards-teal); }
+.rewards-page .pilot-steps strong { color: var(--rewards-ink); }
+.rewards-page .pilot-steps small { color: var(--rewards-muted); }
+.rewards-page .pilot-start, .rewards-page .pilot-share {
+  gap: 25px;
+  padding: clamp(22px, 3vw, 30px);
+  border: 1px solid #d7e3de;
+  border-radius: 8px;
+  background: var(--rewards-soft);
+  color: var(--rewards-ink);
+}
+.rewards-page .pilot-start .pilot-eyebrow, .rewards-page .pilot-share .pilot-eyebrow { color: var(--rewards-teal); }
+.rewards-page .pilot-start p:last-child, .rewards-page .pilot-share > div > p:not(.pilot-eyebrow) { color: #365b55; }
+.rewards-page .pilot-primary, .rewards-page .pilot-share-action button {
+  min-height: 44px;
+  border: 1px solid var(--rewards-teal);
+  border-radius: 5px;
+  background: var(--rewards-teal);
+  color: #fff;
+  font: 600 13px "DM Sans", sans-serif;
+}
+.rewards-page .pilot-primary:hover, .rewards-page .pilot-share-action button:hover { background: #004f48; }
+.rewards-page .pilot-primary:focus-visible, .rewards-page .pilot-text-button:focus-visible,
+.rewards-page .pilot-share-action button:focus-visible, .rewards-page .pilot-share-action input:focus-visible {
+  outline: 3px solid rgba(0, 102, 94, .35);
+  outline-offset: 3px;
+}
+.rewards-page .pilot-section-heading h2, .rewards-page .pilot-share h2,
+.rewards-page .pilot-survey h2, .rewards-page .pilot-measurement h2 {
+  color: var(--rewards-ink);
+  font-family: "DM Sans", sans-serif;
+  font-weight: 600;
+  letter-spacing: -.045em;
+}
+.rewards-page .pilot-section-heading > span {
+  border-color: #b8cbc5;
+  border-radius: 5px;
+  color: var(--rewards-teal);
+}
+.rewards-page .pilot-reward-grid { gap: 22px; }
+.rewards-page .pilot-reward, .rewards-page .pilot-reward:nth-child(2) {
+  min-height: 265px;
+  padding: clamp(22px, 3vw, 30px);
+  border: 1px solid #d7e3de;
+  border-radius: 8px;
+  background: #fff;
+}
+.rewards-page .pilot-reward > svg, .rewards-page .pilot-reward > strong { color: var(--rewards-teal); }
+.rewards-page .pilot-reward h3 { color: var(--rewards-ink); font-family: "DM Sans", sans-serif; font-weight: 600; letter-spacing: -.035em; }
+.rewards-page .pilot-reward > p:not(.pilot-reward-type) { color: #365b55; }
+.rewards-page .pilot-rules { border-color: #d7e3de; border-radius: 8px; }
+.rewards-page .pilot-rules > div { background: #fff; color: var(--rewards-ink); }
+.rewards-page .pilot-rules > div + div { border-color: #d7e3de; }
+.rewards-page .pilot-rules-note, .rewards-page .pilot-boundary { color: var(--rewards-muted); }
+.rewards-page .pilot-text-button { color: var(--rewards-teal); }
+.rewards-page .pilot-offer-detail {
+  border: 1px solid var(--rewards-border);
+  border-radius: 7px;
+  background: var(--rewards-soft);
+  color: #234b44;
+}
+.rewards-page .pilot-offer-detail button { border-radius: 5px; background: var(--rewards-teal); color: #fff; }
+.rewards-page .pilot-share-action label, .rewards-page .pilot-share-action small { color: #365b55; }
+.rewards-page .pilot-share-action input {
+  border-color: #b8cbc5;
+  border-radius: 5px;
+  background: #fff;
+  color: var(--rewards-ink);
+}
+.rewards-page .pilot-survey > p:not(.pilot-eyebrow), .rewards-page .pilot-survey > p a { color: var(--rewards-muted); }
+.rewards-page .pilot-survey fieldset { border-color: #d7e3de; border-radius: 8px; background: #fff; }
+.rewards-page .pilot-survey label { color: #365b55; }
+.rewards-page .pilot-survey input { accent-color: var(--rewards-teal); }
+.rewards-page .pilot-saved { color: var(--rewards-teal); }
+.rewards-page .pilot-measurement {
+  border: 1px solid var(--rewards-border);
+  border-radius: 8px;
+  background: var(--rewards-soft);
+}
+.rewards-page .pilot-measurement p:last-child { color: var(--rewards-muted); }
+.rewards-page .pilot-sync-error { border-left-color: #b18a3a; background: #f8f6ef; color: #6e592b; }
+.rewards-page .pilot-boundary { border-top-color: var(--rewards-border); }
+@media (max-width: 780px) { .rewards-exchange-grid { grid-template-columns: 1fr; } }
+@media (max-width: 650px) {
+  .rewards-page { padding-top: 50px; }
+  .rewards-page > h1 { font-size: clamp(47px, 10vw, 64px); }
+  .rewards-page .pilot-page { padding: 0; }
+  .rewards-page .pilot-steps { gap: 8px; margin: 27px 0; }
+  .rewards-page .pilot-steps li { padding: 13px 15px; }
+  .rewards-page .pilot-reward { min-height: 0; }
+  .rewards-page .pilot-start, .rewards-page .pilot-share { gap: 20px; }
+}
+.rewards-page .pilot-embedded .pilot-eyebrow,
+.rewards-page .pilot-embedded .pilot-steps span,
+.rewards-page .pilot-embedded .pilot-reward-type,
+.rewards-page .pilot-embedded .pilot-rules span { color: var(--rewards-teal); }
+.rewards-page .pilot-embedded .pilot-data-note,
+.rewards-page .pilot-embedded .pilot-invite {
+  border-color: var(--rewards-border);
+  border-left-color: var(--rewards-teal);
+  background: var(--rewards-soft);
+  color: #365b55;
+}
+.rewards-page .pilot-embedded .pilot-steps li {
+  border-color: #d7e3de;
+  border-top-color: #b8cbc5;
+  background: #fff;
+}
+.rewards-page .pilot-embedded .pilot-steps li.is-current,
+.rewards-page .pilot-embedded .pilot-steps li.is-done { border-color: #d7e3de; border-top-color: var(--rewards-teal); }
+.rewards-page .pilot-embedded .pilot-steps li.is-current { border-color: var(--rewards-teal); }
+.rewards-page .pilot-embedded .pilot-steps strong { color: var(--rewards-ink); }
+.rewards-page .pilot-embedded .pilot-steps small { color: var(--rewards-muted); }
+.rewards-page .pilot-embedded .pilot-start,
+.rewards-page .pilot-embedded .pilot-share {
+  border-color: #d7e3de;
+  background: var(--rewards-soft);
+  color: var(--rewards-ink);
+}
+.rewards-page .pilot-embedded .pilot-start .pilot-eyebrow,
+.rewards-page .pilot-embedded .pilot-share .pilot-eyebrow { color: var(--rewards-teal); }
+.rewards-page .pilot-embedded .pilot-start p:last-child,
+.rewards-page .pilot-embedded .pilot-share > div > p:not(.pilot-eyebrow) { color: #365b55; }
+.rewards-page .pilot-embedded .pilot-reward,
+.rewards-page .pilot-embedded .pilot-reward:nth-child(2) {
+  border-color: #d7e3de;
+  background: #fff;
+}
+.rewards-page .pilot-embedded .pilot-reward > svg,
+.rewards-page .pilot-embedded .pilot-reward > strong { color: var(--rewards-teal); }
+.rewards-page .pilot-embedded .pilot-reward h3 { color: var(--rewards-ink); }
+.rewards-page .pilot-embedded .pilot-reward > p:not(.pilot-reward-type) { color: #365b55; }
+.rewards-page .pilot-embedded .pilot-rules { border-color: #d7e3de; }
+.rewards-page .pilot-embedded .pilot-rules > div { background: #fff; color: var(--rewards-ink); }
+.rewards-page .pilot-embedded .pilot-rules > div + div { border-color: #d7e3de; }
+.rewards-page .pilot-embedded .pilot-section-heading > span { border-color: #b8cbc5; color: var(--rewards-teal); }
+.rewards-page .pilot-embedded .pilot-share-action label,
+.rewards-page .pilot-embedded .pilot-share-action small { color: #365b55; }
+.rewards-page .pilot-embedded .pilot-share-locked { color: var(--rewards-muted); }
+.rewards-page .pilot-embedded .pilot-share-action input { border-color: #b8cbc5; background: #fff; color: var(--rewards-ink); }
+.rewards-page .pilot-embedded .pilot-survey > p:not(.pilot-eyebrow),
+.rewards-page .pilot-embedded .pilot-survey > p a { color: var(--rewards-muted); }
+.rewards-page .pilot-embedded .pilot-survey fieldset { border-color: #d7e3de; background: #fff; }
+.rewards-page .pilot-embedded .pilot-survey label { color: #365b55; }
+.rewards-page .pilot-embedded .pilot-measurement { border-color: var(--rewards-border); background: var(--rewards-soft); }
+.rewards-page .pilot-embedded .pilot-measurement h2 { color: var(--rewards-ink); }
+.rewards-page .pilot-embedded .pilot-measurement p:last-child { color: var(--rewards-muted); }
+.rewards-page .pilot-embedded .pilot-boundary { color: var(--rewards-muted); border-top-color: var(--rewards-border); }

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1672" height="941" viewBox="0 0 1672 941">
+  <defs><filter id="glow" x="-10%" y="-40%" width="120%" height="180%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.3"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+  <!-- Outer edges only: the stack silhouette and the open report silhouette. -->
+  <g fill="none" stroke="#d6ea81" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" filter="url(#glow)">
+    <path d="M1098,548 L1258,542 Q1266,542 1266,549 L1264,558 L1308,558 Q1316,558 1316,565 L1314,574 L1308,581 L1311,591 L1307,605 L1262,610 L1258,615 L1102,610 Q1096,607 1096,601 L1098,590 L1095,581 L1098,570 L1096,560 Z"/>
+    <path d="M1237,603 Q1270,586 1301,588 Q1322,589 1337,597 Q1365,589 1390,603 L1421,618 Q1384,623 1340,619 Q1301,623 1258,614 Z"/>
+  </g>
+</svg>

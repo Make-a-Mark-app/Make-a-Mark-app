@@ -40,7 +40,7 @@ export function ShopGlobe({ totals }: { totals: ImpactTotals | null }) {
   );
 
   return (
-    <div ref={globeRef} className={`shop-globe${visible ? " shop-globe-visible" : ""}`} role="img" aria-label="Illustrative planet that gains green land and blue water as demo exchanges increase">
+    <div ref={globeRef} className={`shop-globe${visible ? " shop-globe-visible" : ""}`} role="img" aria-label="Illustration of a rotating globe">
       <svg viewBox="0 0 600 600" focusable="false" aria-hidden="true">
         <defs>
           <radialGradient id={`${id}-bare`} cx="34%" cy="27%" r="77%">
@@ -83,4 +83,3 @@ export function ShopGlobe({ totals }: { totals: ImpactTotals | null }) {
     </div>
   );
 }
-

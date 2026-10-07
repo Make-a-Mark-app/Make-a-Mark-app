@@ -60,4 +60,4 @@ Enable Cloud Build, Artifact Registry, Cloud Run, and Compute Engine/Load Balanc
 
 ## Handoff
 
-Proceed to [Step 7](step-07-cloud-model-and-operations.md) only if a hosted model and cloud operations are needed. Then complete [Step 8](step-08-acceptance-and-rehearsal.md).
+Proceed to [Step 7](step-07-cloud-model-and-operations.md) only if a hosted model and cloud operations are needed. Then complete [Step 9](step-09-acceptance-and-rehearsal.md); Step 8 is a local frontend feature and may be built independently.

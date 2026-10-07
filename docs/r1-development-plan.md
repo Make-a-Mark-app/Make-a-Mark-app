@@ -15,7 +15,7 @@ The key trust labels are fixed requirements:
 
 ## Implementation sequence
 
-Use the eight standalone guides in [Build Order](build-plan/index.md). Each guide defines its purpose, sub-step actions, required services, outputs, handoff, and completion checks.
+Use the nine standalone guides in [Build Order](build-plan/index.md). Each guide defines its purpose, sub-step actions, required services, outputs, handoff, and completion checks.
 
 | Order | Guide | Function |
 |---|---|---|
@@ -26,9 +26,11 @@ Use the eight standalone guides in [Build Order](build-plan/index.md). Each guid
 | 5 | [Local containers and observability](build-plan/step-05-local-containers-and-observability.md) | Package Docker Compose stack and local Grafana signals |
 | 6 | [Optional Google Cloud deployment](build-plan/step-06-google-cloud-deployment.md) | Host a shareable demo on Cloud Run behind HTTPS routing |
 | 7 | [Optional cloud model and operations](build-plan/step-07-cloud-model-and-operations.md) | Configure Vertex/other provider, IAM/secrets, logs, and alerts |
-| 8 | [Inclusive acceptance and rehearsal](build-plan/step-08-acceptance-and-rehearsal.md) | Verify accessibility, trust, failures, operations, and demo repeatability |
+| 8 | [Impact Rewards](build-plan/step-08-impact-rewards.md) | Build browser-local credits, simulated redemption, and fictional community examples |
+| 9 | [Inclusive acceptance and rehearsal](build-plan/step-09-acceptance-and-rehearsal.md) | Verify accessibility, trust, failures, operations, rewards, and demo repeatability |
 
-Steps 6 and 7 are optional for local-only work. Step 8 applies to either run profile.
+Steps 6 and 7 are optional for local-only work. Step 8 depends only on Steps 1–2 and can be built alongside Steps 3–7. Step 9 applies to either run profile.
+
 ## Acceptance matrix
 
 ### Mission and entry
@@ -61,6 +63,15 @@ Steps 6 and 7 are optional for local-only work. Step 8 applies to either run pro
 - No sign-in, profile, or server-side session is needed. Discovery state remains in this browser.
 - Requests, prompts, source passages, and demo values are not written to standard logs or metrics.
 
+### Impact Rewards prototype
+
+- Completing the freight mission earns one local Impact Credit once per mission completion; a retry can be completed again for the demonstration.
+- The rewards page offers explicit demo actions for a video-view completion and a sustainable-merchandise purchase; each adds one local credit and is labeled simulated.
+- Ten credits can be redeemed for one demo tree contribution. The interface identifies this as a simulated redemption, not a planted tree, carbon credit, verified offset, donation, or measured environmental outcome.
+- Current-year and all-time counts are browser-local demo totals, not shared community totals. Show a separate illustrative campaign-total placeholder, clearly marked as sample data and not verified planting. A fictional sample leaderboard shows an annual ranking and identifies sample accounts as fictional; race-pass language is a concept only.
+- No video tracking, commerce, payment, order validation, planting partner, tree registry, shared leaderboard, contest fulfillment, or external data integration is in R1.
+- The feature is keyboard operable, responsive, and clearly states what is simulated at the point of action and beside the totals.
+
 ### Operations
 
 - Clean `docker compose up --build` starts the web/API and local observability stack; health checks report service state.
@@ -73,7 +84,7 @@ Use a small convenience sample spanning newer and long-time fans and the concept
 
 ## Demo script and observability
 
-The demo must be reproducible without external AMF1 access. For local rehearsal use Docker Compose and Grafana; for a hosted rehearsal use the optional GCP profile and Cloud Logging/Monitoring. In either profile: enter through either supported route, advance each telemetry state, make a mission choice, inspect a source record, and ask a supported and unsupported question. Rehearse no-provider and provider-error behavior. Do not present a scripted demonstration as a live feed.
+The demo must be reproducible without external AMF1 access. For local rehearsal use Docker Compose and Grafana; for a hosted rehearsal use the optional GCP profile and Cloud Logging/Monitoring. In either profile: enter through either supported route, advance each telemetry state, make a mission choice, inspect a source record, ask a supported and unsupported question, and demonstrate earning and redeeming Impact Credits. Rehearse no-provider and provider-error behavior. Do not present a scripted demonstration as a live feed or demo tree count as confirmed planting.
 
 Operational dashboards show API availability, latency, response modes, validation failures, and provider error classes. They do not contain personal profiles or user question text.
 

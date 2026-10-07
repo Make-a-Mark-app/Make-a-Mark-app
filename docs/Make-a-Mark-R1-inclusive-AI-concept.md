@@ -4,11 +4,11 @@
 
 Refine the R1 prototype so F1 fans with different interests and levels of familiarity can use it. The experience should work for someone who wants a quick interactive introduction, someone who wants to understand the engineering context, and someone who wants to inspect the evidence.
 
-This document covers **R1 only**: one freight mission, the evidence library, and an optional Race Engineer. It does not propose further product development after R1.
+This document covers **R1 only**: one freight mission, the evidence library, an optional Race Engineer, and a small simulated Impact Rewards feature. It does not propose further product development after R1.
 
 ## Refined concept
 
-**Make A Mark: Impact Drive is an F1 impact experience where fans can play, understand, or verify.** A short, fictional freight mission provides an engaging entry point. The hackathon R1 demonstrates a live-style session view with a scripted telemetry stream and illustrative impact placeholders; it does not connect to AMF1 systems or claim that placeholder values are real. Published AMF1 ESG records can provide factual, period-based context when cited. The optional AI Race Engineer explains the difference between these data types.
+**Make A Mark: Impact Drive is an F1 impact experience where fans can play, understand, verify, and see a simulated reward loop.** A short, fictional freight mission provides an engaging entry point. The hackathon R1 demonstrates a live-style session view with a scripted telemetry stream and illustrative impact placeholders; it does not connect to AMF1 systems or claim that placeholder values are real. Published AMF1 ESG records can provide factual, period-based context when cited. The optional AI Race Engineer explains the difference between these data types. A prototype-only Impact Rewards page demonstrates how game, video, and sustainable-merchandise actions could earn credits toward a tree-planting contribution.
 
 The experience is not designed around age groups. It supports different motivations:
 
@@ -29,8 +29,21 @@ The game remains optional. Users can go directly to the evidence library, use th
 4. **Explore evidence:** open a cited published record to see the claim, source, reporting period, review state, and limitations; clearly distinguish it from illustrative demo placeholders.
 5. **Ask the Race Engineer:** request a short explanation or a deeper account of a term, source, or supported comparison.
 6. **Leave with a clear takeaway:** summarize what the user explored, without claiming that gameplay changed real-world impact.
+7. **See the rewards concept:** eligible demo actions add one local Impact Credit; 10 credits can be exchanged for a simulated tree contribution. A yearly sample leaderboard and race-pass reward hypothesis make the engagement loop tangible.
 
 Use readable text, plain-language definitions, visible keyboard focus, keyboard and touch controls, reduced motion, and an untimed, non-driving route throughout R1.
+
+## R1 Impact Rewards feature
+
+The rewards page is a **local prototype simulation**, not a carbon-credit scheme or a live AMF1 loyalty program:
+
+- Completing the freight mission, recording a demo video-view completion, or simulating an eligible sustainable-merchandise purchase earns one Impact Credit.
+- Ten Impact Credits redeem for one **demo tree contribution**. Credit and redemption state is saved only in the current browser; the prototype does not plant a tree, transfer funds, verify an order or watch, or issue a carbon offset.
+- The page shows the user's demo redemption count on this browser, an **illustrative campaign total** placeholder, and a sample annual leaderboard. The campaign total is not a shared or verified planting count; sample fan accounts are fictional.
+- A race pass for the annual leader is a prize hypothesis only. No AMF1 prize, contest, or eligibility terms are confirmed.
+- Bamboo-based products and lower-impact shipping are examples for a possible eligible purchase rule, not claims about current AMF1 merchandise. The prototype has no shop or checkout integration.
+
+If AMF1 chose to operate such a program, it would need a named planting partner, auditable contribution confirmations, a defined funding-per-tree mechanism, purchase/view completion validation, fraud controls, annual contest rules, and clear methodology for any environmental claims. Those are outside hackathon R1.
 
 ## Audience demand and desirability
 
@@ -295,6 +308,7 @@ The hackathon R1 has no AMF1 data-access or buyer-approval dependency. Lock the 
 4. **Optional Race Engineer:** answers user questions from the cited evidence subset and labeled demo data; prepared fallback remains available.
 5. **Inclusive interaction:** concise and detailed explanations, keyboard/touch access, reduced motion, and an untimed non-driving route.
 6. **Prototype validation:** check comprehension, source-finding, mission completion/bypass, and whether participants understand that live-style and impact placeholders are simulated.
+7. **Impact Rewards demonstration:** local-only credits, 10-credit redemption, browser-only totals, and fictional leaderboard entries; no account, payments, verified purchases, real planting, shared community total, or prize fulfillment.
 
 This scope answers the hackathon brief through a working demonstration of how the experience could behave, without implying that actual AMF1 data access or a future AMF1 buyer has been secured.
 

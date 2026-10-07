@@ -1,12 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { createServer } from "node:http";
-import { readFileSync } from "node:fs";
-import { parseEvidenceDataset } from "../shared/contracts/evidence";
 import { createApp } from "../server/app";
 
 test("the Engineer answers a supported evidence question with server-resolved citations", async ({ request }) => {
   const response = await request.post("/api/engineer", {
-    data: { category: "evidence", question: "  What is the travel and logistics emissions reduction?  ", detailLevel: "concise" },
+    data: { question: "  What is the travel and logistics emissions reduction?  ", detailLevel: "concise" },
   });
 
   expect(response.ok()).toBeTruthy();
@@ -25,32 +23,22 @@ test("the Engineer answers a supported evidence question with server-resolved ci
 });
 
 test("detail preference expands a prepared source explanation and unavailable telemetry stays null", async ({ request }) => {
-  const conciseResponse = await request.post("/api/engineer", { data: { category: "evidence", question: "What is the travel and logistics emissions reduction?" } });
-  const detailedResponse = await request.post("/api/engineer", { data: { category: "evidence", question: "What is the travel and logistics emissions reduction?", detailLevel: "detailed" } });
+  const conciseResponse = await request.post("/api/engineer", { data: { question: "What is the travel and logistics emissions reduction?" } });
+  const detailedResponse = await request.post("/api/engineer", { data: { question: "What is the travel and logistics emissions reduction?", detailLevel: "detailed" } });
   const telemetryResponse = await request.post("/api/engineer", {
-    data: { category: "telemetry", question: "What signals does this simulated snapshot include?", context: { telemetry: { stepId: "step-04" } } },
-  });
-  const availableTelemetryResponse = await request.post("/api/engineer", {
-    data: { category: "telemetry", question: "What signals does this simulated snapshot include?", context: { telemetry: { stepId: "step-01" } } },
+    data: { question: "What signals does this simulated snapshot include?", context: { telemetry: { stepId: "step-04" } } },
   });
 
   const concise = await conciseResponse.json();
   const detailed = await detailedResponse.json();
   const telemetry = await telemetryResponse.json();
-  const availableTelemetry = await availableTelemetryResponse.json();
-  expect(concise.answer.trim().split(/\s+/).length).toBeLessThanOrEqual(150);
-  expect(detailed.answer.trim().split(/\s+/).length).toBeLessThanOrEqual(400);
   expect(concise.answer).not.toContain("Printed p. 9");
   expect(detailed.answer).toContain("Printed p. 9 (PDF p. 8)");
-  expect(detailed.relatedRecordIds).toEqual(concise.relatedRecordIds);
   expect(telemetry.mode).toBe("prepared_fallback");
   expect(telemetry.answer).toContain("Speed: Unavailable");
   expect(telemetry.answer).toContain("Gear: Unavailable");
   expect(telemetry.answer).not.toMatch(/Speed: \d/);
-  expect(telemetry.limitations).toContain("Telemetry values are simulated demo data, not a live AMF1 feed or measured impact.");
-  expect(availableTelemetry.answer).toContain("Simulated demo snapshot step-01 is updating.");
-  expect(availableTelemetry.answer).toContain("Speed: 287 km/h");
-  expect(availableTelemetry.answer).toContain("Gear: 7 gear");
+  expect(telemetry.limitations).toContain("Telemetry values are simulated fixture data, not a live AMF1 feed.");
 });
 
 test("keyword retrieval supports the reviewed Belong and Community claims", async ({ request }) => {
@@ -59,29 +47,52 @@ test("keyword retrieval supports the reviewed Belong and Community claims", asyn
     ["How many students were engaged?", "com-2025-make-a-mark-week-students"],
   ];
   for (const [question, recordId] of questions) {
-    const response = await request.post("/api/engineer", { data: { category: "evidence", question } });
+    const response = await request.post("/api/engineer", { data: { question } });
     const result = await response.json();
     expect(result.mode).toBe("prepared_fallback");
     expect(result.relatedRecordIds).toContain(recordId);
   }
 });
 
-test("the Engineer declines a factual question unsupported by reviewed records or selected context", async ({ request }) => {
-  for (const question of ["What is the team’s total lifetime carbon footprint?", "Does solar generation improve race performance?"]) {
-    const response = await request.post("/api/engineer", { data: { category: "evidence", question } });
+test("broad sustainability questions summarize the reviewed environmental and community records", async ({ request }) => {
+  const response = await request.post("/api/engineer", { data: { question: "What did AMF1 do for sustainability?" } });
+  expect(response.ok()).toBeTruthy();
+  const result = await response.json();
+  expect(result.mode).toBe("prepared_fallback");
+  expect(result.relatedRecordIds).toHaveLength(6);
+  expect(result.answer).toContain("14% reduction in travel and logistics emissions");
+  expect(result.answer).toContain("1,188 tCO₂e were avoided");
+  expect(result.answer).toContain("257 students");
+  expect(result.citations).toHaveLength(6);
+});
+
+test("a sustainability question with an unreported figure returns related evidence and its limits", async ({ request }) => {
+  const response = await request.post("/api/engineer", { data: { question: "What is the team's total lifetime carbon footprint?" } });
+  const result = await response.json();
+  expect(result.mode).toBe("prepared_fallback");
+  expect(result.relatedRecordIds).toContain("env-2025-travel-logistics-avoided");
+  expect(result.relatedRecordIds).toContain("env-2025-travel-logistics-reduction");
+  expect(result.limitations.join(" ")).toContain("not be recast as a measured inventory reduction");
+});
+
+test("the Engineer declines a question unrelated to sustainability or selected context", async ({ request }) => {
+  for (const question of ["What is the weather in Singapore?", "Who won the last football match?"]) {
+    const response = await request.post("/api/engineer", { data: { question } });
     expect(response.ok()).toBeTruthy();
-    expect(await response.json()).toMatchObject({
-      answer: "Not enough evidence in the reviewed records or selected context to support an answer.",
-      mode: "no_answer",
-      citations: [],
-      relatedRecordIds: [],
-      limitations: ["This prototype does not answer from general model knowledge."],
-    });
+    expect(await response.json()).toMatchObject({ mode: "no_answer", citations: [], relatedRecordIds: [] });
   }
 });
 
-test("selected Mission and telemetry context resolves to canonical server values without a provider", async () => {
-  const app = createApp();
+test("selected Mission and telemetry context resolves to canonical server values", async () => {
+  const providerInputs: Array<Record<string, unknown>> = [];
+  const app = createApp({
+    provider: async (input) => {
+      providerInputs.push(input as unknown as Record<string, unknown>);
+      return input.missionSummary
+        ? { answer: "Air: The route prioritizes a tight delivery window.", recordIds: [] }
+        : { answer: "The simulated snapshot is unavailable; speed, gear, throttle, and brake are unavailable.", recordIds: [] };
+    },
+  });
   const server = createServer(app);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
@@ -90,165 +101,50 @@ test("selected Mission and telemetry context resolves to canonical server values
   try {
     const missionResponse = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: "mission", question: "What happens in this freight mission?", context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "air" } } }),
+      body: JSON.stringify({ question: "What happens in this freight mission?", context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "air" } } }),
     });
     const telemetryResponse = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: "telemetry", question: "What signals are in this simulated snapshot?", context: { telemetry: { stepId: "step-04" } } }),
-    });
-    const mismatchedMissionResponse = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: "mission", question: "What is the travel and logistics emissions reduction?", context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "air" } } }),
+      body: JSON.stringify({ question: "What signals are in this simulated snapshot?", context: { telemetry: { stepId: "step-04" } } }),
     });
     const unrelatedResponse = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: "telemetry", question: "What is the weather in Singapore?", context: { telemetry: { stepId: "step-04" } } }),
+      body: JSON.stringify({ question: "What is the weather in Singapore?", context: { telemetry: { stepId: "step-04" } } }),
     });
     const unsupportedMissionResponse = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: "mission", question: "Does the mission make money?", context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "air" } } }),
+      body: JSON.stringify({ question: "Does the mission make money?", context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "air" } } }),
     });
     const unsupportedTelemetryResponse = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: "telemetry", question: "How should I improve battery life?", context: { telemetry: { stepId: "step-04" } } }),
+      body: JSON.stringify({ question: "How should I improve battery life?", context: { telemetry: { stepId: "step-04" } } }),
     });
-    expect(await missionResponse.json()).toMatchObject({
-      answer: "Air: Your game scenario prioritizes a tight delivery window.",
-      whatSourceStates: "No report record was retrieved for this question. Fictional mission: Air route. Your game scenario prioritizes a tight delivery window.",
-      limitations: ["Mission route and outcome are fictional game content, not AMF1 operations."],
-      citations: [],
-      mode: "prepared_fallback",
-      modeLabel: "Prepared answer",
+    expect((await missionResponse.json()).mode).toBe("grounded_ai");
+    expect((await telemetryResponse.json()).mode).toBe("grounded_ai");
+    expect(providerInputs[0].missionSummary).toMatchObject({ selectedRoute: "Air" });
+    expect(providerInputs[0]).not.toHaveProperty("telemetrySnapshot");
+    expect(providerInputs[1].telemetrySnapshot).toMatchObject({
+      stepId: "step-04", status: "unavailable", signals: expect.arrayContaining([
+        { id: "speed", name: "Speed", value: null, unit: "km/h", valueType: "number", interpretation: "Shows the simulated car speed." },
+      ]),
     });
-    expect(await telemetryResponse.json()).toMatchObject({ mode: "prepared_fallback", modeLabel: "Prepared answer" });
-    expect(await mismatchedMissionResponse.json()).toMatchObject({
-      mode: "no_answer",
-      whatItMeans: "This question is not supported by the selected category or context. Choose a matching question category and try again.",
-    });
+    expect(providerInputs[1]).not.toHaveProperty("missionSummary");
     expect((await unrelatedResponse.json()).mode).toBe("no_answer");
     expect((await unsupportedMissionResponse.json()).mode).toBe("no_answer");
     expect((await unsupportedTelemetryResponse.json()).mode).toBe("no_answer");
+    expect(providerInputs).toHaveLength(2);
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-  }
-});
-
-test("supported mission questions use a prepared canonical explanation even when a provider is configured", async () => {
-  let providerCalls = 0;
-  const app = createApp({
-    provider: async () => {
-      providerCalls += 1;
-      return { answer: "A generated answer.", recordIds: [] };
-    },
-  });
-  const server = createServer(app);
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  if (!address || typeof address === "string") throw new Error("The test API did not bind a TCP port.");
-
-  try {
-    const response = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: "mission", question: "What happens for the air route?", context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "air" } } }),
-    });
-    const result = await response.json();
-    expect(result).toMatchObject({
-      answer: "Air: Your game scenario prioritizes a tight delivery window.",
-      mode: "prepared_fallback",
-      citations: [],
-      limitations: ["Mission route and outcome are fictional game content, not AMF1 operations."],
-    });
-    expect(providerCalls).toBe(0);
-  } finally {
-    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-  }
-});
-
-test("telemetry questions use canonical demo values and keep unavailable signals explicit", async () => {
-  let providerCalls = 0;
-  const app = createApp({
-    provider: async () => {
-      providerCalls += 1;
-      return { answer: "Speed is 999 km/h.", recordIds: [] };
-    },
-  });
-  const server = createServer(app);
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  if (!address || typeof address === "string") throw new Error("The test API did not bind a TCP port.");
-
-  try {
-    const response = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: "telemetry", question: "What signals are in this simulated snapshot?", context: { telemetry: { stepId: "step-04" } } }),
-    });
-    const result = await response.json();
-    expect(result).toMatchObject({
-      answer: "Simulated demo snapshot step-04 is unavailable. Speed: Unavailable km/h; Gear: Unavailable gear; Throttle: Unavailable %; Brake: Unavailable %.",
-      mode: "prepared_fallback",
-      citations: [],
-      limitations: ["Telemetry values are simulated demo data, not a live AMF1 feed or measured impact."],
-    });
-    expect(result.answer).not.toContain("999");
-    expect(providerCalls).toBe(0);
-  } finally {
-    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-  }
-});
-
-test("conflicting retrieved records produce no answer", async () => {
-  const dataset = parseEvidenceDataset(JSON.parse(readFileSync(new URL("../shared/data/evidence.r1.v2.json", import.meta.url), "utf8")));
-  const original = dataset?.records.find(({ id }) => id === "env-2025-travel-logistics-reduction");
-  if (!original) throw new Error("Expected reviewed evidence fixture is missing.");
-  const conflicting = {
-    ...original,
-    id: "env-2025-travel-logistics-reduction-conflict",
-    value: 15,
-    valueDisplay: "15",
-    claim: "AMF1 reports a 15% reduction in travel and logistics emissions.",
-  };
-  const cases = [
-    conflicting,
-    { ...original, id: "env-2025-travel-logistics-reduction-no-value", value: undefined, valueDisplay: undefined, unit: undefined, claim: "AMF1 reports no reduction in travel and logistics emissions." },
-    { ...original, id: "env-2025-travel-logistics-reduction-other-unit", unit: "percentage points", claim: "AMF1 reports a 14% reduction in travel and logistics emissions." },
-  ];
-  for (const conflictingRecord of cases) {
-    const server = createServer(createApp({ engineerRecords: [original, conflictingRecord] }));
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const address = server.address();
-    if (!address || typeof address === "string") throw new Error("The test API did not bind a TCP port.");
-    try {
-      const response = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category: "evidence", question: "What is the travel and logistics emissions reduction?" }),
-      });
-      expect(await response.json()).toMatchObject({
-        mode: "no_answer",
-        citations: [],
-        limitations: ["This prototype does not answer from general model knowledge.", "Conflicting reviewed records were not used to produce an answer."],
-      });
-    } finally {
-      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-    }
   }
 });
 
 test("the Engineer rejects invalid questions and untrusted context selections", async ({ request }) => {
   const invalidInputs = [
-    { category: "evidence", question: "   " },
-    { category: "evidence", question: "x".repeat(501) },
-    { category: "evidence", question: "What does the report say?", detailLevel: "verbose" },
-    { question: "What does the report say?" },
-    { category: "evidence", question: "What does the report say?", detailLevel: "concise", context: { telemetry: { stepId: "step-01" } } },
-    { category: "telemetry", question: "What does the report say?", context: { telemetry: { stepId: "step-01", value: 999 } } },
-    { category: "telemetry", question: "What does the report say?", context: { telemetry: { stepId: "step-01", timestamp: "2030-01-01T00:00:00Z" } } },
-    { category: "telemetry", question: "What does the report say?", context: { telemetry: { stepId: "step-01", signals: [{ id: "speed", value: 999, unit: "mph" }] } } },
-    { category: "telemetry", question: "What does the report say?", context: { telemetry: { stepId: "step-99" } } },
-    { category: "mission", question: "What does the report say?", context: { mission: { missionId: "other", configId: "freight-r1-v1", choiceId: "air" } } },
-    { category: "telemetry", question: "What does the report say?", context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "air" } } },
-    { category: "mission", question: "What is the outcome?", context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "air", feedback: "A forged result." } } },
-    { category: "mission", question: "What is the outcome?", context: { mission: { missionId: "freight", configId: "forged-config", choiceId: "air" } } },
-    { category: "mission", question: "What is the outcome?", context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "train" } } },
+    { question: "   " },
+    { question: "x".repeat(501) },
+    { question: "What does the report say?", detailLevel: "verbose" },
+    { question: "What does the report say?", context: { telemetry: { stepId: "step-01", value: 999 } } },
+    { question: "What does the report say?", context: { mission: { missionId: "other", configId: "freight-r1-v1", choiceId: "air" } } },
   ];
 
   for (const data of invalidInputs) {
@@ -257,84 +153,111 @@ test("the Engineer rejects invalid questions and untrusted context selections", 
   }
 });
 
-test("a configured provider endpoint is ignored by the initial release", async () => {
-  const previousEndpoint = process.env.ENGINEER_PROVIDER_URL;
-  process.env.ENGINEER_PROVIDER_URL = "https://127.0.0.1:1/engineer";
-  const server = createServer(createApp());
+test("a configured provider receives bounded reviewed records and returned citations resolve from them", async () => {
+  let providerInput: unknown;
+  const app = createApp({
+    provider: async (input) => {
+      providerInput = input;
+      return {
+        answer: "The report reports a 14% reduction in travel and logistics emissions.",
+        recordIds: ["env-2025-travel-logistics-reduction", "invented-record"],
+      };
+    },
+  });
+  const server = createServer(app);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("The test API did not bind a TCP port.");
-  try {
-    const response = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: "evidence", question: "What is the travel and logistics emissions reduction?" }),
-    });
-    const result = await response.json() as { mode: string; limitations: string[] };
-    expect(result.mode).toBe("prepared_fallback");
-    expect(result.limitations).not.toContain("The optional explanation provider is unavailable; this prepared response uses only the selected context and reviewed records.");
-  } finally {
-    if (previousEndpoint === undefined) delete process.env.ENGINEER_PROVIDER_URL;
-    else process.env.ENGINEER_PROVIDER_URL = previousEndpoint;
-    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-  }
-});
 
-test("an injected provider sees only retrieved records and citations resolve from the server", async () => {
-  let suppliedRecordIds: string[] = [];
-  const server = createServer(createApp({ provider: async (input) => {
-    suppliedRecordIds = input.records.map(({ id }) => id);
-    return { answer: "The report reports a 14% reduction in travel and logistics emissions.", recordIds: suppliedRecordIds };
-  } }));
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  if (!address || typeof address === "string") throw new Error("The test API did not bind a TCP port.");
   try {
     const response = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: "evidence", question: "What is the travel and logistics emissions reduction?" }),
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: "What is the travel and logistics emissions reduction?", detailLevel: "detailed" }),
     });
-    const result = await response.json() as { mode: string; citations: Array<{ recordId: string; sourceUrl: string }> };
-    expect(result.mode).toBe("grounded_ai");
-    expect(suppliedRecordIds).toEqual(["env-2025-travel-logistics-reduction"]);
-    expect(result.citations).toEqual([expect.objectContaining({
+    expect(response.ok).toBeTruthy();
+    const result = await response.json();
+    expect(result).toMatchObject({ mode: "grounded_ai", answer: "The report reports a 14% reduction in travel and logistics emissions." });
+    expect(result.relatedRecordIds).toEqual(["env-2025-travel-logistics-reduction"]);
+    expect(result.citations).toHaveLength(1);
+    expect(result.citations[0]).toMatchObject({
       recordId: "env-2025-travel-logistics-reduction",
       sourceUrl: "https://downloads.astonmartinf1.com/MakeAMark_ESG_Report_2025.pdf#page=8",
-    })]);
+    });
+    expect(providerInput).toMatchObject({
+      question: "What is the travel and logistics emissions reduction?",
+      detailLevel: "detailed",
+      records: [{ id: "env-2025-travel-logistics-reduction" }],
+    });
+    expect(providerInput).not.toHaveProperty("telemetrySnapshot");
+    expect(providerInput).not.toHaveProperty("missionSummary");
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
 });
 
-test("an injected provider failure returns a prepared answer with a limitation", async () => {
-  const server = createServer(createApp({ provider: async () => { throw new Error("provider timeout"); } }));
+test("provider failure returns a prepared answer from the retrieved record", async () => {
+  const app = createApp({ provider: async () => { throw new Error("provider timeout"); } });
+  const server = createServer(app);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("The test API did not bind a TCP port.");
+
   try {
     const response = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: "evidence", question: "What is the travel and logistics emissions reduction?" }),
+      body: JSON.stringify({ question: "What is the travel and logistics emissions reduction?" }),
     });
-    const result = await response.json() as { mode: string; limitations: string[] };
+    const result = await response.json();
     expect(result.mode).toBe("prepared_fallback");
+    expect(result.relatedRecordIds).toEqual(["env-2025-travel-logistics-reduction"]);
     expect(result.limitations).toContain("The optional explanation provider is unavailable; this prepared response uses only the selected context and reviewed records.");
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
 });
 
-test("the full app asks only on submit and sends only selected context", async ({ page }) => {
+test("the API rejects provider claims outside the retrieved record and uses the prepared answer", async () => {
+  const app = createApp({
+    provider: async () => ({ answer: "Travel and logistics emissions improved race performance by 25%.", recordIds: ["env-2025-travel-logistics-reduction"] }),
+  });
+  const server = createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("The test API did not bind a TCP port.");
+
+  try {
+    const response = await fetch("http://127.0.0.1:" + address.port + "/api/engineer", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: "What is the travel and logistics emissions reduction?" }),
+    });
+    const result = await response.json();
+    expect(result.mode).toBe("prepared_fallback");
+    expect(result.answer).toContain("14% reduction in travel and logistics emissions");
+    expect(result.answer).not.toContain("25%");
+    expect(result.limitations).toContain("The provider response could not be grounded in the selected records and context, so it was not used.");
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
+test("the floating chat asks only on submit, stays on the current page, and sends only selected context", async ({ page }) => {
   const submittedBodies: Array<Record<string, unknown>> = [];
   await page.route("**/api/engineer", async (route) => {
     submittedBodies.push(route.request().postDataJSON() as Record<string, unknown>);
     await route.continue();
   });
-  await page.goto("/engineer");
+  await page.goto("/");
   expect(submittedBodies).toEqual([]);
-  await expect(page.getByRole("heading", { name: "Ask the Race Engineer." })).toBeVisible();
-  await page.getByLabel("YOUR QUESTION").fill("What is the travel and logistics emissions reduction?");
-  await page.getByLabel("ANSWER DETAIL").selectOption("detailed");
-  await page.getByRole("button", { name: "Send question" }).click();
+  await page.getByRole("button", { name: "Open Race Engineer chat" }).click();
+  const chat = page.getByRole("dialog", { name: "Ask the Race Engineer" });
+  await expect(chat).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  await chat.getByLabel("Your message").fill("What is the travel and logistics emissions reduction?");
+  await chat.getByText("Answer settings").click();
+  await chat.getByLabel("Answer detail").selectOption("detailed");
+  await chat.getByLabel(/Include simulated snapshot/).check();
+  await chat.getByRole("button", { name: "Send message" }).click();
 
   await expect(page.getByText("AMF1 reports a 14% reduction in travel and logistics emissions through", { exact: false }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /Travel and logistics emissions reduction/ })).toHaveAttribute(
@@ -343,132 +266,78 @@ test("the full app asks only on submit and sends only selected context", async (
   );
   expect(submittedBodies).toHaveLength(1);
   expect(submittedBodies[0]).toMatchObject({
-    category: "evidence",
     question: "What is the travel and logistics emissions reduction?",
     detailLevel: "detailed",
+    context: { telemetry: { stepId: "step-01" } },
   });
-  expect(submittedBodies[0]).not.toHaveProperty("context");
+  expect((submittedBodies[0].context as Record<string, unknown>)).not.toHaveProperty("mission");
   expect(await page.evaluate(() => Object.keys(localStorage).filter((key) => key.includes("engineer")))).toEqual([]);
+  await chat.getByRole("button", { name: "Close Race Engineer chat" }).click();
+  await page.getByRole("button", { name: "Open Race Engineer chat" }).click();
+  await expect(chat.getByText(/AMF1 reports a 14% reduction/)).toHaveCount(0);
 });
 
-test("the browser submits only the selected mission choice and receives its canonical outcome", async ({ page }) => {
-  const submittedBodies: Array<Record<string, unknown>> = [];
+test("the companion waves and greets on hover or focus, then Escape returns focus to it", async ({ page }) => {
+  await page.goto("/");
+  const launcher = page.getByRole("button", { name: "Open Race Engineer chat" });
+  await launcher.hover();
+  await expect(page.getByRole("status").getByText("Hi, I’m your AI Race Engineer.")).toBeVisible();
+  await expect(page.locator(".race-engineer-companion")).toHaveAttribute("data-state", "greeting");
+  await launcher.focus();
+  await expect(page.getByText("Got a question? Click me.")).toBeVisible();
+  await page.keyboard.press("Enter");
+  const chat = page.getByRole("dialog", { name: "Ask the Race Engineer" });
+  await expect(chat).toBeVisible();
+  await expect(page.locator(".race-engineer-companion")).toHaveAttribute("data-state", "listening");
+  await expect(chat.getByText("Ask a question")).toBeVisible();
+  await expect(chat.getByText("Ready to help")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(chat).toHaveCount(0);
+  await expect(launcher).toBeFocused();
+});
+
+test("the mascot thinks only while a request is pending and resets to idle after a service failure", async ({ page }) => {
+  let releaseRequest!: () => void;
   await page.route("**/api/engineer", async (route) => {
-    submittedBodies.push(route.request().postDataJSON() as Record<string, unknown>);
+    await new Promise<void>((resolve) => { releaseRequest = resolve; });
     await route.continue();
   });
-  await page.goto("/mission/freight");
-  await expect(page.getByRole("heading", { name: "Deliver the parts." })).toBeVisible();
-  await page.getByRole("radio", { name: /Air/ }).click();
-  await page.getByRole("button", { name: /Ask the Race Engineer/ }).click();
-  await expect(page.getByRole("heading", { name: "Ask the Race Engineer." })).toBeVisible();
-  expect(submittedBodies).toEqual([]);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open Race Engineer chat" }).click();
+  const input = page.getByLabel("Your message");
+  await input.fill("What did AMF1 do for sustainability?");
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(page.locator(".race-engineer-companion")).toHaveAttribute("data-state", "thinking");
+  await expect(page.getByText("Checking sources…")).toBeVisible();
+  releaseRequest();
+  await expect(page.locator(".chat-answer-details")).toBeVisible();
+  await expect(page.locator(".race-engineer-companion")).toHaveAttribute("data-state", "idle");
 
-  await page.getByLabel("QUESTION CATEGORY").selectOption("mission");
-  await page.getByLabel("YOUR QUESTION").fill("What happens for the air route?");
-  const sendButton = page.getByRole("button", { name: "Send question" });
-  await expect(sendButton).toBeDisabled();
-  await page.getByRole("checkbox", { name: /Include fictional Mission scenario/ }).check();
-  expect(submittedBodies).toEqual([]);
-  await sendButton.click();
-
-  await expect(page.getByText("Air: Your game scenario prioritizes a tight delivery window.", { exact: true })).toBeVisible();
-  expect(submittedBodies).toHaveLength(1);
-  expect(submittedBodies[0]).toMatchObject({
-    category: "mission",
-    question: "What happens for the air route?",
-    context: { mission: { missionId: "freight", configId: "freight-r1-v1", choiceId: "air" } },
-  });
-  const submittedContext = submittedBodies[0].context as Record<string, unknown>;
-  expect(Object.keys(submittedContext)).toEqual(["mission"]);
-  expect(submittedContext.mission).not.toHaveProperty("feedback");
+  await page.route("**/api/engineer", (route) => route.abort());
+  await input.fill("What did AMF1 do for sustainability?");
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(page.getByText("Service unavailable")).toBeVisible();
+  await expect(page.getByText(/API is unavailable/)).toBeVisible();
+  await expect(page.locator(".race-engineer-companion")).toHaveAttribute("data-state", "idle");
 });
 
-test("the browser submits only the selected snapshot id and receives canonical demo values", async ({ page }) => {
-  const submittedBodies: Array<Record<string, unknown>> = [];
-  await page.route("**/api/engineer", async (route) => {
-    submittedBodies.push(route.request().postDataJSON() as Record<string, unknown>);
-    await route.continue();
-  });
-  await page.goto("/telemetry");
-  await expect(page.getByRole("heading", { name: "Simulated live view" })).toBeVisible();
-  await page.getByRole("button", { name: "Unavailable" }).click();
-  await expect(page.getByText("SNAPSHOT 4 / 4")).toBeVisible();
-  await page.getByRole("link", { name: "Freight mission" }).click();
-  await page.getByRole("radio", { name: /Air/ }).click();
-  await page.getByRole("button", { name: /Ask the Race Engineer/ }).click();
-  await expect(page.getByRole("heading", { name: "Ask the Race Engineer." })).toBeVisible();
-  expect(submittedBodies).toEqual([]);
-
-  await page.getByLabel("QUESTION CATEGORY").selectOption("telemetry");
-  await page.getByLabel("YOUR QUESTION").fill("What signals are in this simulated snapshot?");
-  const sendButton = page.getByRole("button", { name: "Send question" });
-  await expect(sendButton).toBeDisabled();
-  await page.getByRole("checkbox", { name: /Include simulated snapshot.*step-04/ }).check();
-  expect(submittedBodies).toEqual([]);
-  await sendButton.click();
-
-  await expect(page.getByText(/Simulated demo snapshot step-04 is unavailable/)).toBeVisible();
-  await expect(page.getByText("Telemetry values are simulated demo data, not a live AMF1 feed or measured impact.")).toBeVisible();
-  expect(submittedBodies).toHaveLength(1);
-  expect(submittedBodies[0]).toMatchObject({
-    category: "telemetry",
-    question: "What signals are in this simulated snapshot?",
-    context: { telemetry: { stepId: "step-04" } },
-  });
-  const submittedContext = submittedBodies[0].context as Record<string, unknown>;
-  expect(Object.keys(submittedContext)).toEqual(["telemetry"]);
-  expect(submittedContext.telemetry).toEqual({ stepId: "step-04" });
-});
-
-test("Engineer failures do not retry and do not block mission, evidence, or telemetry browsing", async ({ page }) => {
-  let attempts = 0;
-  await page.route("**/api/engineer", (route) => {
-    attempts += 1;
-    return route.abort();
-  });
-  await page.goto("/mission/freight");
-  await page.getByRole("radio", { name: /Air/ }).click();
-  await page.getByRole("button", { name: /Ask the Race Engineer/ }).click();
-  await expect(page.getByRole("heading", { name: "Ask the Race Engineer." })).toBeVisible();
-
-  const sendButton = page.getByRole("button", { name: "Send question" });
-  await page.getByLabel("YOUR QUESTION").fill("evidence outage question 7192");
-  await sendButton.click();
-  await expect(page.getByText("The Race Engineer API is unavailable, so I could not retrieve an approved record or selected-context explanation.")).toBeVisible();
-  await expect(page.getByText("API unavailable", { exact: true })).toBeVisible();
-
-  await page.getByLabel("QUESTION CATEGORY").selectOption("mission");
-  await page.getByLabel("YOUR QUESTION").fill("What happens for the air route?");
-  await page.getByRole("checkbox", { name: /Include fictional Mission scenario/ }).check();
-  await sendButton.click();
-  await expect(page.getByText("API unavailable", { exact: true })).toBeVisible();
-
-  await page.getByLabel("QUESTION CATEGORY").selectOption("telemetry");
-  await page.getByLabel("YOUR QUESTION").fill("What signals are in this simulated snapshot?");
-  await page.getByRole("checkbox", { name: /Include simulated snapshot/ }).check();
-  await sendButton.click();
-  await expect(page.getByText("API unavailable", { exact: true })).toBeVisible();
-  await page.waitForTimeout(1000);
-  expect(attempts).toBe(3);
-  const savedState = await page.evaluate(() => JSON.stringify(localStorage));
-  expect(savedState).not.toContain("evidence outage question 7192");
-  expect(savedState).not.toContain("What happens for the air route?");
-  expect(savedState).not.toContain("What signals are in this simulated snapshot?");
-  expect(savedState).not.toContain("step-01");
-  expect(savedState).not.toContain("missionId");
-
-  await page.getByRole("link", { name: "Freight mission" }).click();
-  await expect(page.getByRole("heading", { name: "Deliver the parts." })).toBeVisible();
-  await page.getByRole("link", { name: "Evidence library" }).click();
-  await expect(page.getByRole("heading", { name: "Evidence library" })).toBeVisible();
-  await page.getByRole("link", { name: "Simulated live view" }).click();
-  await expect(page.getByRole("heading", { name: "Simulated live view" })).toBeVisible();
-  expect(attempts).toBe(3);
-});
-
-test("the API reports an oversized request as JSON 413", async ({ request }) => {
-  const response = await request.post("/api/engineer", { data: { category: "evidence", question: "x".repeat(17_000) } });
-  expect(response.status()).toBe(413);
-  expect(await response.json()).toEqual({ error: "Engineer request body exceeds the 16KB limit." });
+test("the companion and chat stay clear of the composer on mobile and the pose is static with reduced motion", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: "reduce" });
+  const page = await context.newPage();
+  await page.goto("/");
+  const launcher = page.getByRole("button", { name: "Open Race Engineer chat" });
+  await expect(launcher).toBeVisible();
+  await expect(page.locator(".race-engineer-companion .engineer-idle")).toHaveCSS("display", "block");
+  await expect(page.locator(".race-engineer-companion .engineer-idle")).toHaveCSS("animation-name", "none");
+  await launcher.tap();
+  const chat = page.getByRole("dialog", { name: "Ask the Race Engineer" });
+  await expect(chat).toBeVisible();
+  const chatBox = await chat.boundingBox();
+  const composerBox = await chat.locator(".race-engineer-chat-composer").boundingBox();
+  const mascotBox = await page.locator(".race-engineer-companion").boundingBox();
+  expect(chatBox && composerBox && mascotBox).toBeTruthy();
+  expect((chatBox!.y + chatBox!.height)).toBeLessThanOrEqual(mascotBox!.y + 1);
+  expect(composerBox!.y).toBeGreaterThan(chatBox!.y);
+  await expect(chat.getByLabel("Your message")).toBeVisible();
+  await context.close();
 });

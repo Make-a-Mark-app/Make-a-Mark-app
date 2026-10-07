@@ -241,7 +241,7 @@ The existing prototype includes React/Vite, an Express API, a deterministic fict
 
 ## Related plans
 
-- [Eight-step build order and detailed guides](build-plan/index.md)
+- [Nine-step build order and detailed guides](build-plan/index.md)
 
 - [Component and container plan](component-and-container-plan.md)
 - [R1 development plan](r1-development-plan.md)
@@ -427,7 +427,7 @@ The key trust labels are fixed requirements:
 
 ## Implementation sequence
 
-Use the eight standalone guides in [Build Order](build-plan/index.md). Each guide defines its purpose, sub-step actions, required services, outputs, handoff, and completion checks.
+Use the nine standalone guides in [Build Order](build-plan/index.md). Each guide defines its purpose, sub-step actions, required services, outputs, handoff, and completion checks.
 
 | Order | Guide | Function |
 |---|---|---|
@@ -438,9 +438,10 @@ Use the eight standalone guides in [Build Order](build-plan/index.md). Each guid
 | 5 | [Local containers and observability](build-plan/step-05-local-containers-and-observability.md) | Package Docker Compose stack and local Grafana signals |
 | 6 | [Optional Google Cloud deployment](build-plan/step-06-google-cloud-deployment.md) | Host a shareable demo on Cloud Run behind HTTPS routing |
 | 7 | [Optional cloud model and operations](build-plan/step-07-cloud-model-and-operations.md) | Configure Vertex/other provider, IAM/secrets, logs, and alerts |
-| 8 | [Inclusive acceptance and rehearsal](build-plan/step-08-acceptance-and-rehearsal.md) | Verify accessibility, trust, failures, operations, and demo repeatability |
+| 8 | [Impact Rewards](build-plan/step-08-impact-rewards.md) | Build browser-local credits, simulated redemption, and fictional community examples |
+| 9 | [Inclusive acceptance and rehearsal](build-plan/step-09-acceptance-and-rehearsal.md) | Verify accessibility, trust, failures, operations, rewards, and demo repeatability |
 
-Steps 6 and 7 are optional for local-only work. Step 8 applies to either run profile.
+Steps 6 and 7 are optional for local-only work. Step 8 depends only on Steps 1–2 and can be built alongside Steps 3–7. Step 9 applies to either run profile.
 ## Acceptance matrix
 
 ### Mission and entry

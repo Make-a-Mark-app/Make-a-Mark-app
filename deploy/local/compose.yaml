@@ -1,4 +1,4 @@
-name: cognizant-local
+name: make-a-mark-r1
 
 services:
   web:
@@ -7,7 +7,7 @@ services:
       dockerfile: deploy/local/Dockerfile
       target: web
     ports:
-      - "127.0.0.1:${WEB_PORT:-8080}:80"
+      - "${WEB_PORT:-8080}:80"
     depends_on:
       api:
         condition: service_healthy
@@ -29,15 +29,10 @@ services:
       NODE_ENV: production
       APP_ENV: local
       PORT: "4178"
-      ENGINEER_PROVIDER_ENABLED: ${ENGINEER_PROVIDER_ENABLED:-false}
+      KIRA_API_KEY: ${KIRA_API_KEY:-}
+      KIRA_MODEL: ${KIRA_MODEL:-gpt-oss-120b}
       ENGINEER_PROVIDER_URL: ${ENGINEER_PROVIDER_URL:-}
       ENGINEER_PROVIDER_API_KEY: ${ENGINEER_PROVIDER_API_KEY:-}
-      LOG_DIRECTORY: /var/log/cognizant
-      IMPACT_TOTALS_FILE: /var/lib/cognizant/impact-totals.json
-      PILOT_DATA_FILE: /var/lib/cognizant/pilot-demo.json
-    volumes:
-      - service-logs:/var/log/cognizant
-      - impact-totals:/var/lib/cognizant
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4178/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 15s
@@ -86,10 +81,8 @@ services:
     command: ["run", "/etc/alloy/config.alloy", "--server.http.listen-addr=0.0.0.0:12345"]
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
-      - service-logs:/var/log/cognizant:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
-      api:
-        condition: service_healthy
       loki:
         condition: service_healthy
     healthcheck:
@@ -113,7 +106,7 @@ services:
     image: grafana/grafana:11.5.2
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?Run npm run setup:local first}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
     ports:
@@ -143,5 +136,3 @@ volumes:
   grafana-data:
   loki-data:
   prometheus-data:
-  service-logs:
-  impact-totals:

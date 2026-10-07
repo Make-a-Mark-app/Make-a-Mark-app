@@ -1,6 +1,6 @@
 # Make A Mark R1 Build Order
 
-**Status:** Planned work. The app has not been updated by these plans. Follow the steps in order; Step 6 and Step 7 are optional when a local-only prototype is sufficient. Step 8 is the release and demo-readiness gate for either run profile.
+**Status:** Planned work. The guides describe the intended build sequence; Step 6 and Step 7 are optional when a local-only prototype is sufficient. Step 9 is the release and demo-readiness gate for either run profile.
 
 ## Product boundary
 
@@ -19,7 +19,8 @@ See the [base project structure](project-structure.md) for the scaffolded folder
 | 5 | [Local containers and observability](step-05-local-containers-and-observability.md) | One-command local stack with resettable monitoring | Steps 2–4 |
 | 6 | [Optional Google Cloud deployment](step-06-google-cloud-deployment.md) | Shareable hosted demo | Steps 1–5 |
 | 7 | [Optional cloud model and operations](step-07-cloud-model-and-operations.md) | Cloud model identity, secret handling, logs, metrics, error reporting | Step 6; optional provider |
-| 8 | [Inclusive acceptance and rehearsal](step-08-acceptance-and-rehearsal.md) | Release-ready prototype and reproducible demo | Steps 1–5; Steps 6–7 if hosting in GCP |
+| 8 | [Impact Rewards](step-08-impact-rewards.md) | Browser-local credits, demo redemption, and fictional community examples | Steps 1–2; independent of Steps 3–7 |
+| 9 | [Inclusive acceptance and rehearsal](step-09-acceptance-and-rehearsal.md) | Release-ready prototype and reproducible demo | Steps 1–5 and 8; Steps 6–7 if hosting in GCP |
 
 ## Run profiles
 

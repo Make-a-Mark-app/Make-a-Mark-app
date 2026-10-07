@@ -57,4 +57,4 @@ For local Compose, use an ignored `.env` for an optional provider key; do not ch
 
 ## Handoff
 
-Complete [Step 8](step-08-acceptance-and-rehearsal.md) before presenting or sharing the hosted demo.
+Complete [Step 9](step-09-acceptance-and-rehearsal.md) before presenting or sharing the hosted demo. Step 8 is browser-local and does not require cloud model or operations setup.

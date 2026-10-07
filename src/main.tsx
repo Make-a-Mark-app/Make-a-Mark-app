@@ -10,6 +10,10 @@ import "@fontsource/dm-mono/500.css";
 import "@fontsource/playfair-display/500.css";
 import "@fontsource/playfair-display/600.css";
 import "./styles.css";
+import "./experience.css";
+import "./library.css";
+import "./garage-header.css";
+import "./impact-shop.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

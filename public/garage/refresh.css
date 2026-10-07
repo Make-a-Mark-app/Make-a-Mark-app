@@ -1,0 +1,25 @@
+/* Geometry follows the approved matte-floor, straight-profile garage artwork. */
+:root{--door-duration:2000ms}
+.ambient{background-image:linear-gradient(#0419146b,#04191440),url('assets/garage.png?v=4')}
+.lighting{background-image:url('assets/garage.png?v=4')}.contour{background-image:url('assets/contours.png?v=4')}
+.object-game{left:2.5%;top:44.5%;width:61.5%;height:26%;border-radius:38% 37% 12% 12%}
+.object-reports{left:65%;top:57%;width:22%;height:10%;border-radius:25%}
+.light-game .lighting{-webkit-mask-image:radial-gradient(ellipse 33% 15% at 33% 58%,#000 45%,transparent 99%);mask-image:radial-gradient(ellipse 33% 15% at 33% 58%,#000 45%,transparent 99%)}
+.light-reports .lighting{-webkit-mask-image:radial-gradient(ellipse 12% 7% at 75% 61%,#000 40%,transparent 100%);mask-image:radial-gradient(ellipse 12% 7% at 75% 61%,#000 40%,transparent 100%)}
+.light-game .lighting,.light-reports .lighting{display:none}
+.light-game .contour{background-image:url('assets/car-outline.svg?v=5');clip-path:none;opacity:.85}
+.light-reports .contour{background-image:url('assets/books-outline.svg?v=5');clip-path:none;opacity:.85}
+.light-game.is-active .contour,.light-reports.is-active .contour{opacity:1}
+.light-shop .contour{background-image:url('assets/contours.png?v=4');background-size:100% 108%;background-position:center 13%;clip-path:polygon(78% 10%,100% 10%,100% 49%,91% 49%,91% 60%,85.5% 60%,85.5% 49%,78% 49%)}
+.light-shop::after{content:'';position:absolute;inset:0;background:url('assets/pot-outline.svg?v=5') center/100% 100% no-repeat;opacity:.8;pointer-events:none}
+.hud[data-key=shop]{right:21%}
+/* Rapid hover changes should never leave text in a partially painted reveal frame. */
+.hud{animation:none;clip-path:none;border-radius:0 12px 0 12px;backdrop-filter:none;-webkit-backdrop-filter:none}
+.loading-status{position:absolute;left:50%;bottom:8%;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;gap:14px;align-items:center;color:#e9efdc;font:9px monospace;letter-spacing:2px;text-transform:uppercase;white-space:nowrap;transition:opacity .45s}
+.loading-line{position:relative;width:180px;height:1px;background:#e4efd137;overflow:hidden}
+.loading-line::after{content:'';position:absolute;left:0;top:0;width:45%;height:1px;background:#d6ea81;animation:loading-sweep 1400ms ease-in-out infinite}
+@keyframes loading-sweep{from{transform:translateX(-120%)}to{transform:translateX(340%)}}
+.entrance.is-opening .loading-status{opacity:0}
+.shutter{background-image:url('assets/shutter.png?v=4');background-position:center;background-size:cover}
+@media(max-width:760px) and (min-height:521px){.shutter{background-image:url('assets/shutter.png?v=4'),repeating-linear-gradient(0deg,#0a221d 0px,#10342a 2px,#09241d 20px,#031c16 22px);background-size:100% auto,auto;background-repeat:no-repeat,repeat;background-position:center,center}.loading-status{font-size:8px;letter-spacing:1.4px}}
+@media(prefers-reduced-motion:reduce){.loading-line::after{animation:none;transform:none;width:100%}}
